@@ -106,7 +106,7 @@ func TestRenameTagPreviewAndApply(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, text := range []string{"tag rename preview (2 records; registry unchanged)", "Previous (own): [new, old]",
-		"Current (own): [new]", "Existing target tags merged: 1", filepath.Join(root, "stale")} {
+		"Current (own): [new]", "Existing target tags merged: 1", fmt.Sprintf("%q", filepath.Join(root, "stale"))} {
 		if !strings.Contains(out.String(), text) {
 			t.Errorf("missing %q in %s", text, &out)
 		}
