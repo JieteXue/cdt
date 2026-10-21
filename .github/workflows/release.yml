@@ -106,5 +106,21 @@ jobs:
         run: sha256sum *.tar.gz *.zip > checksums.txt
       - name: Publish tested packages
         run: |
-          gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes dist/*
+          version=${RELEASE_TAG#v}
+          base="https://github.com/${GH_REPO}/releases/download/${RELEASE_TAG}"
+          notes=$(printf '%s\n' \
+            '## Downloads' '' \
+            "- [macOS - Apple Silicon](${base}/cdt_${version}_darwin_arm64.tar.gz)" \
+            "- [macOS - Intel](${base}/cdt_${version}_darwin_amd64.tar.gz)" \
+            "- [Windows - x64 (Intel / AMD)](${base}/cdt_${version}_windows_amd64.zip)" \
+            "- [Windows - ARM64](${base}/cdt_${version}_windows_arm64.zip)" \
+            "- [SHA-256 checksums](${base}/checksums.txt)" '' \
+            'Homebrew automatically selects the correct macOS package. No Go installation is required.')
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "cdt $RELEASE_TAG" \
+            --notes "$notes" --generate-notes \
+            "dist/cdt_${version}_darwin_arm64.tar.gz#macOS - Apple Silicon" \
+            "dist/cdt_${version}_darwin_amd64.tar.gz#macOS - Intel" \
+            "dist/cdt_${version}_windows_amd64.zip#Windows - x64 (Intel / AMD)" \
+            "dist/cdt_${version}_windows_arm64.zip#Windows - ARM64" \
+            "dist/checksums.txt#SHA-256 checksums"
           gh release edit "$RELEASE_TAG" --draft=false

@@ -275,6 +275,9 @@ binary with native shell terminal tests, and packages it with the license and
 documentation. All four builds must pass before the workflow publishes the
 macOS TAR archives, Windows ZIP archives, and
 SHA-256 checksums. A failed upload leaves a draft, not a published partial release.
+Downloads use readable platform labels: macOS - Apple Silicon, macOS - Intel,
+Windows - x64 (Intel / AMD), and Windows - ARM64. Archive filenames remain stable
+for package managers and scripts; release notes include labeled download links.
 
 Then update the personal tap's architecture-specific URLs and SHA-256 values from
 that release. Run the tap's audit, install, and smoke tests before pushing it.
