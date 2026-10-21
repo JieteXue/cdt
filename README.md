@@ -1,7 +1,55 @@
 # cdt
 
-Directory tags for macOS zsh and Windows PowerShell 7. Register paths, combine
-tags, and jump. One Go core, one version, and platform-specific release packages.
+**Jump to directories by tags, not long paths.**
+
+cdt is a command-line directory bookmark tool for **macOS zsh** and **Windows
+PowerShell 7**. Give a directory a few tags, then combine those tags to get back
+to it from anywhere. You choose what to register: cdt does not learn from your
+shell history or scan your directory tree.
+
+## How it works
+
+After [installing and enabling shell integration](#install), tag directories
+that already exist:
+
+```sh
+cdt -ap ~/work work
+cdt -ap ~/work/api api
+cdt -ap ~/personal/api api
+
+cdt work api       # jump straight to ~/work/api
+cdt api work       # same result; tag order does not matter
+cdt api            # choose between the two API directories
+cdt work           # jump to ~/work, not every directory below it
+```
+
+The `api` directory under `~/work` inherits the registered parent's `work` tag.
+Adding `work` to your query distinguishes it from your personal API directory,
+without adding that tag to every child yourself. All query tags must match,
+and at least one must belong to the directory itself. Matching is exact and
+case-sensitive, not fuzzy.
+
+A unique match changes directory immediately. Multiple matches open a native
+shell selection menu; Tab/arrows select, Enter confirms, and Ctrl-G/Ctrl-C cancel.
+Tab also completes tags and path arguments while you type.
+
+## What you get
+
+- **Explicit bookmarks:** register only the directories you want, with multiple
+  tags per directory and inherited parent tags for context.
+- **Visible results:** browse registrations as a tree with `cdt -l`, discover
+  tags with `cdt --tags`, and diagnose matching with `cdt --explain`.
+- **Editable local data:** open your tags with `cdt --edit`, rename tags globally,
+  or repair recorded paths after moving a project. Preview bulk changes with
+  `--dry-run`.
+- **Small installation:** precompiled packages for Apple Silicon, Intel Macs,
+  Windows x64, and Windows ARM64. No Go, Python, or fzf is needed at runtime.
+
+Registration commands change cdt's local records, never directory contents.
+Only a successful jump changes your shell's current directory.
+
+[Install](#install) · [Usage](#usage) · [Data and safety](#data-and-safety) ·
+[Upgrade](#upgrade) · [Development](#development)
 
 ## Install
 
@@ -17,8 +65,10 @@ Add this line to your `.zshrc`, after your existing completion setup:
 eval "$(command cdt init zsh)"
 ```
 
-Run the same line in an existing zsh session to enable it immediately. Installation
-does not edit your shell configuration. No fzf, Python, or Go is needed at runtime.
+Add it once; new interactive zsh sessions will load cdt automatically. Run the
+same line in an existing session to enable it immediately. The shell function is
+needed because a standalone executable cannot change its parent shell's directory.
+Installation does not edit your shell configuration.
 Homebrew automatically downloads the precompiled macOS package for Apple Silicon
 or Intel; installing cdt does not install Go or compile source code. Each release
 also includes both architecture archives and a `checksums.txt` file for manual
@@ -381,19 +431,45 @@ Then update the personal tap's architecture-specific URLs and SHA-256 values fro
 that release. Run the tap's audit, install, and smoke tests before pushing it.
 Keep released tags and archives immutable so the tap's checksums remain valid.
 
-## Upgrade and uninstall
+## Upgrade
 
 ```sh
 brew update
 brew upgrade cdt
+```
+
+The executable updates immediately. Shell functions and completion already loaded
+in an open terminal remain in memory. If a release changes shell integration,
+open a new terminal to load it through `.zshrc`, or refresh the current session:
+
+```sh
+eval "$(command cdt init zsh)"
+```
+
+You do not need to run this manually after every upgrade. With the initialization
+line in `.zshrc`, new interactive shells load the installed integration automatically.
+
+On Windows, replace the files in your installation directory with the matching
+release ZIP. A new PowerShell session loads the integration through `$PROFILE`;
+to refresh an existing session, run:
+
+```powershell
+cdt.exe init powershell | Out-String | Invoke-Expression
+```
+
+Upgrading preserves your registry. No profile edits or data migration are needed
+when upgrading to v0.5.0.
+
+## Uninstall
+
+```sh
 brew uninstall cdt
 ```
 
 Remove the initialization line from `.zshrc` when uninstalling. Your registry is
 retained; remove it separately only when you no longer need the records.
 
-On Windows, replace the files in your installation directory to upgrade. To
-uninstall, remove that directory from `PATH`, delete it, and remove initialization
-from `$PROFILE`. Registry data is retained separately.
+On Windows, remove the installation directory from `PATH`, delete it, and remove
+initialization from `$PROFILE`. Registry data is retained separately.
 
 MIT licensed.
