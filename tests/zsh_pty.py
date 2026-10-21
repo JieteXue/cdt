@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real zsh PTY tests; uses only the Python standard library."""
 import fcntl
+import faulthandler
 import os
 from pathlib import Path
 import pty
@@ -82,7 +83,7 @@ class Integration(unittest.TestCase):
 
     def run_cdt(self, *args):
         return subprocess.run([str(BIN), *args], env=self.env, check=True,
-                              capture_output=True, text=True)
+                              capture_output=True, text=True, timeout=20)
 
     def tearDown(self):
         self.shell.close()
@@ -95,11 +96,11 @@ class Integration(unittest.TestCase):
         self.assertIn(b"cdt: entered ", out)
         self.assertFalse((ROOT / "PWNED").exists())
         script = 'eval "$(command cdt init zsh)"; before=$PWD; cdt api; rc=$?; [[ $PWD == $before ]]; print RESULT:$rc:$?'
-        result = subprocess.run(["zsh", "-fc", script], env=self.env, capture_output=True)
+        result = subprocess.run(["zsh", "-fc", script], env=self.env, capture_output=True, timeout=20)
         self.assertIn(b"RESULT:2:0", result.stdout)
         self.assertIn(b"ambiguous", result.stderr)
         result = subprocess.run(["zsh", "-fc", 'eval "$(command cdt init zsh)"; cdt alpha'],
-                                env=self.env, capture_output=True)
+                                env=self.env, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, b"")
         self.assertEqual(result.stderr, b"")
@@ -225,4 +226,5 @@ class Integration(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    faulthandler.dump_traceback_later(60, repeat=True)
     unittest.main()
