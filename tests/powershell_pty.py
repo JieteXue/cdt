@@ -78,6 +78,8 @@ class WindowsTerminal:
                                                     self.console, c.sizeof(w.HANDLE), None, None))
         startup = StartupEx()
         startup.startup.cb = c.sizeof(startup)
+        # Clear inherited CI redirection so standard I/O attaches to ConPTY.
+        startup.startup.flags = 0x00000100
         startup.attributes = c.cast(attributes, c.c_void_p)
         info = ProcessInfo()
         environment = c.create_unicode_buffer("\0".join(f"{k}={v}" for k, v in sorted(env.items())) + "\0\0")
