@@ -21,7 +21,10 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Check formatting
-        run: if (gofmt -l .) { throw 'Go files need formatting' }
+        run: |
+          $unformatted = @(gofmt -l .)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($unformatted.Count) { throw "Go files need formatting: $unformatted" }
       - run: go vet ./...
       - name: Test Windows storage and CLI
         run: |

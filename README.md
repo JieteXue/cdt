@@ -1,8 +1,11 @@
 # cdt
 
-Directory tags for macOS zsh. Register paths, combine tags, and jump.
+Directory tags for macOS zsh and Windows PowerShell 7. Register paths, combine
+tags, and jump. One Go core, one version, and platform-specific release packages.
 
 ## Install
+
+### macOS
 
 ```sh
 brew install JieteXue/tap/cdt
@@ -20,6 +23,51 @@ Homebrew automatically downloads the precompiled macOS package for Apple Silicon
 or Intel; installing cdt does not install Go or compile source code. Each release
 also includes both architecture archives and a `checksums.txt` file for manual
 verification. Only the package matching your Mac is needed.
+
+### Windows
+
+Install PowerShell 7, then download the matching ZIP from this repository's
+GitHub Releases: `windows_amd64` for Intel/AMD x64, or `windows_arm64` for
+Windows on ARM. Extract it into a permanent directory such as
+`$HOME\Applications\cdt`, and add that directory to your user `PATH`.
+Neither Go nor a compiler is needed. The ZIP includes `cdt.exe`, the license,
+and documentation; initialization is embedded in the executable.
+
+Verify the downloaded archive against the release's `checksums.txt`:
+
+```powershell
+Get-FileHash .\cdt_0.4.0_windows_amd64.zip -Algorithm SHA256
+```
+
+In PowerShell 7, initialize the function:
+
+```powershell
+cdt.exe init powershell | Out-String | Invoke-Expression
+```
+
+Add that initialization line to your PowerShell `$PROFILE` after any existing
+completion setup to enable it in future sessions. Installation does not edit
+your profile or execution policy. Windows PowerShell 5.1 and `cmd.exe` shell
+integration are not supported.
+
+```powershell
+cdt -ap 'C:\Projects\api' work api
+cdt work api
+cdt -l
+```
+
+Unique matches jump directly. Multiple matches open a numbered console menu:
+Tab/Down move forward, Shift-Tab/Up move backward, Enter confirms, and
+Escape/Ctrl-G/Ctrl-C cancel. Tag and `-p` directory completion use PowerShell's
+normal completion system. The integration restores console Ctrl-C handling
+after selection and does not install PSReadLine key bindings.
+
+Check `$LASTEXITCODE` after a `cdt` function call: `0` means success, `1` means
+failure, `2` means a noninteractive ambiguous query, and `130` means cancellation.
+Successful noninteractive jumps are silent; failures leave the location unchanged.
+PowerShell consumes a bare `--`, so the integration recovers it from syntax
+without evaluating values. When splatting arguments, pass the marker as a quoted
+string, for example `cdt @tags '--' -special`.
 
 ## Usage
 
@@ -109,16 +157,25 @@ are displayed. Tab also completes tags while typing and paths after `-p`.
 Invalid paths are excluded from jumping, but remain visible in `-l` and
 `--doctor`. Noninteractive ambiguous queries fail without changing directory.
 The standalone binary cannot change a parent shell's directory: enable the
-zsh function before jumping.
+zsh or PowerShell function before jumping.
 
 ## Data and safety
 
-Records are stored in `${XDG_CONFIG_HOME:-~/.config}/cdt/registry.json`.
+On macOS records are stored in
+`${XDG_CONFIG_HOME:-~/.config}/cdt/registry.json`. On Windows the default is
+`%APPDATA%\cdt\registry.json`; an absolute `XDG_CONFIG_HOME` overrides it.
 `XDG_CONFIG_HOME`, when set, must be absolute. Only canonical real paths and
 explicit tags are persisted (schema version 1). Symlink aliases share a record.
 Spaces, quotes and shell metacharacters in paths are passed as data, never
 evaluated. Mutations use a file lock and atomic replacement. Corrupt or
 unsupported data is rejected without overwriting it.
+
+Windows uses Win32 file locks and same-directory replacement, with readers
+retaining their original snapshots. File access follows Windows ACLs inherited
+from the configuration directory; POSIX `0600` permission bits apply only on Unix.
+Keep registries local to each machine: drive paths and Unix paths are not
+portable across platforms. UNC ancestry is supported, but network-share locking
+and replacement guarantees depend on the remote filesystem.
 
 ### Edit tags in a file
 
@@ -129,8 +186,10 @@ EDITOR=nano cdt -e                 # use nano if VISUAL is not set
 VISUAL="code --wait" cdt -e         # wait for a graphical editor to close
 ```
 
-The editor is chosen from `$VISUAL`, then `$EDITOR`, then system `vi`. Editor
-flags are supported. The command shows the registry location and opens a private
+The editor is chosen from `$VISUAL`, then `$EDITOR`, then system `vi` on macOS
+or `notepad.exe` on Windows. Editor flags are supported; use PowerShell command
+syntax for Windows editor settings, such as `$env:VISUAL = 'code --wait'`.
+The command shows the registry location and opens a private
 JSON draft. Edit each entry's `tags` array; inherited tags are computed, so do not
 copy them into child entries. For example:
 
@@ -165,7 +224,8 @@ These internal commands are not a user-facing API.
 
 ## Development
 
-Go 1.24+, zsh, and Python 3 (only for PTY tests):
+Go 1.24+ and Python 3 (only for PTY tests), plus zsh on macOS or PowerShell 7
+on Windows:
 
 ```sh
 go test -race ./...
@@ -174,15 +234,32 @@ go build -o cdt .
 python3 tests/zsh_pty.py -v
 ```
 
-CI tests Apple Silicon and Intel macOS. Go is needed only by contributors and
-release builders, not by Homebrew users.
+On Windows:
+
+```powershell
+go test ./...
+go vet ./...
+go build -o cdt.exe .
+pwsh -NoProfile -NonInteractive -File tests/powershell.ps1
+python tests/powershell_pty.py -v
+```
+
+CI tests Apple Silicon/Intel macOS and x64/ARM64 Windows natively. Race tests run
+on macOS and Windows x64; Windows ARM64 runs ordinary Go tests. Windows menu
+tests use a real ConPTY terminal, not a mocked key reader.
+Go is needed only by contributors and release builders, not installed users.
+
+Shared parsing, matching, storage schema, and tree rendering stay in the root
+package. `platform_*.go` and `editor_*.go` isolate OS-specific operations;
+`shell/cdt.zsh` and `shell/cdt.ps1` own shell navigation and completion.
 
 ### Publishing
 
 Push a new immutable `vMAJOR.MINOR.PATCH` tag after checks pass. The release
 workflow builds a CGO-free binary on each native architecture, tests the actual
-binary with zsh PTYs, and packages it with the license and documentation. Both
-builds must pass before the workflow publishes the GitHub release archives and
+binary with native shell terminal tests, and packages it with the license and
+documentation. All four builds must pass before the workflow publishes the
+macOS TAR archives, Windows ZIP archives, and
 SHA-256 checksums. A failed upload leaves a draft, not a published partial release.
 
 Then update the personal tap's architecture-specific URLs and SHA-256 values from
@@ -199,5 +276,9 @@ brew uninstall cdt
 
 Remove the initialization line from `.zshrc` when uninstalling. Your registry is
 retained; remove it separately only when you no longer need the records.
+
+On Windows, replace the files in your installation directory to upgrade. To
+uninstall, remove that directory from `PATH`, delete it, and remove initialization
+from `$PROFILE`. Registry data is retained separately.
 
 MIT licensed.
