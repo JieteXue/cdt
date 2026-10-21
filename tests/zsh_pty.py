@@ -61,9 +61,16 @@ class Shell:
     def close(self):
         try:
             os.kill(self.pid, signal.SIGKILL)
-            os.waitpid(self.pid, 0)
         finally:
+            # macOS can wait for terminal I/O during process teardown. Release
+            # the master before reaping the shell, rather than deadlocking.
             os.close(self.fd)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if os.waitpid(self.pid, os.WNOHANG)[0]:
+                return
+            time.sleep(0.05)
+        raise AssertionError("zsh did not exit after closing its PTY")
 
 
 class Integration(unittest.TestCase):
@@ -226,5 +233,5 @@ class Integration(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    faulthandler.dump_traceback_later(60, repeat=True)
+    faulthandler.enable()
     unittest.main()

@@ -36,7 +36,7 @@ and documentation; initialization is embedded in the executable.
 Verify the downloaded archive against the release's `checksums.txt`:
 
 ```powershell
-Get-FileHash .\cdt_0.4.0_windows_amd64.zip -Algorithm SHA256
+Get-FileHash .\cdt_0.4.1_windows_amd64.zip -Algorithm SHA256
 ```
 
 In PowerShell 7, initialize the function:

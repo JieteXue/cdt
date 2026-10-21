@@ -1,12 +1,13 @@
 # Changelog
 
-## 0.4.0
+## 0.4.1
 
 - Add Windows PowerShell 7 navigation, tag/path completion, and console selection.
 - Add Win32 registry locking, snapshot-safe replacement, and editor launching.
 - Use `%APPDATA%\cdt\registry.json` on Windows, with XDG overrides supported.
 - Test Windows x64 and ARM64 natively, including real ConPTY menu interactions.
 - Publish macOS and Windows archives under one shared version and release.
+- Close macOS test terminals before reaping shell processes to avoid cleanup hangs.
 
 ## 0.3.1
 
