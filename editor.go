@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -18,23 +17,26 @@ func preferredEditor() string {
 			return editor
 		}
 	}
-	return "vi"
+	return defaultEditor
 }
 
 func launchEditor(file string, in io.Reader, out io.Writer) error {
-	// The editor setting is a trusted user command; the filename remains a
-	// positional argument, never interpolated into shell source.
-	cmd := exec.Command("/bin/sh", "-c", preferredEditor()+` "$@"`, "cdt-editor", file)
+	cmd := editorCommand(preferredEditor(), file)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = in, out, os.Stderr
 	return cmd.Run()
 }
 
 func snapshot(file string) ([]byte, bool, error) {
-	data, err := os.ReadFile(file)
+	f, err := openRegistry(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, false, nil
 	}
-	return data, err == nil, err
+	if err != nil {
+		return nil, false, err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	return data, true, err
 }
 
 func editRegistry(file string, edit func(string) error) error {

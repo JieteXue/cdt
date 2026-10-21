@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -56,7 +57,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestInheritance(t *testing.T) {
-	r := Registry{1, []Entry{
+	r := Registry{1, testEntries([]Entry{
 		{"/work", []string{"work"}},
 		{"/work/api", []string{"api", "backend"}},
 		{"/personal", []string{"personal"}},
@@ -64,7 +65,7 @@ func TestInheritance(t *testing.T) {
 		{"/work/api/deep", []string{"deep"}},
 		{"/work/api/empty", []string{}},
 		{"/workspace/api", []string{"api"}},
-	}}
+	})}
 	for _, tc := range []struct {
 		tags  []string
 		paths []string
@@ -77,6 +78,9 @@ func TestInheritance(t *testing.T) {
 		{[]string{"absent"}, []string{}},
 	} {
 		got := []string{}
+		for i := range tc.paths {
+			tc.paths[i] = testPath(tc.paths[i])
+		}
 		for _, e := range matches(r, tc.tags, false) {
 			got = append(got, e.Path)
 		}
@@ -94,7 +98,11 @@ func TestCRUDAndPaths(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	parent := filepath.Join(root, "a parent")
-	child := filepath.Join(parent, "中文 ' $(touch INJECTED)\nend")
+	childName := "中文 ' $(touch INJECTED)"
+	if runtime.GOOS != "windows" {
+		childName += "\nend"
+	}
+	child := filepath.Join(parent, childName)
 	if err := os.MkdirAll(child, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +134,15 @@ func TestCRUDAndPaths(t *testing.T) {
 		t.Fatal("path framing changed")
 	}
 	link := filepath.Join(root, "link")
-	if err := os.Symlink(child, link); err != nil {
-		t.Fatal(err)
-	}
-	run("-ap", link, "extra")
+	t.Run("symlink", func(t *testing.T) {
+		if err := os.Symlink(child, link); err != nil {
+			if runtime.GOOS == "windows" {
+				t.Skipf("symlink creation requires Developer Mode or privilege: %v", err)
+			}
+			t.Fatal(err)
+		}
+		run("-ap", link, "extra")
+	})
 	run("-rp", child, "extra")
 	file, _ := registryPath()
 	r, err := load(file)
@@ -159,7 +172,7 @@ func TestCorruptionAndAtomicWrites(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			err := update(file, func(r *Registry) error {
-				r.Entries = append(r.Entries, Entry{filepath.Join("/test", strings.Repeat("x", i+1)), []string{"tag"}})
+				r.Entries = append(r.Entries, Entry{filepath.Join(testPath("/test"), strings.Repeat("x", i+1)), []string{"tag"}})
 				return nil
 			})
 			if err != nil {
@@ -187,10 +200,15 @@ func TestCorruptionAndAtomicWrites(t *testing.T) {
 }
 
 func TestHelpAndUninitialized(t *testing.T) {
-	for _, args := range [][]string{nil, {"--help"}, {"-V"}, {"init", "zsh"}} {
+	for _, args := range [][]string{nil, {"--help"}, {"-V"}, {"init", "zsh"}, {"init", "powershell"}} {
 		var out bytes.Buffer
 		if err := execute(args, strings.NewReader(""), &out); err != nil || out.Len() == 0 {
 			t.Fatal(args, err)
+		}
+	}
+	for _, args := range [][]string{{"init"}, {"init", "bash"}, {"init", "powershell", "extra"}} {
+		if err := execute(args, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+			t.Fatal("accepted invalid initialization", args)
 		}
 	}
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())

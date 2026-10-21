@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"unicode"
 )
@@ -16,7 +17,10 @@ var version = "dev"
 //go:embed shell/cdt.zsh
 var shell string
 
-const help = `cdt - directory tags for zsh
+//go:embed shell/cdt.ps1
+var powershell string
+
+const help = `cdt - directory tags for zsh and PowerShell 7
 
 Usage:
   cdt TAG...                    Jump by unordered tags
@@ -24,9 +28,10 @@ Usage:
   cdt -d [-p PATH]               Unregister a directory (never deletes files)
   cdt -r [-p PATH] TAG...        Remove explicit tags
   cdt -l [TAG...]               List records as a tree (including stale paths)
-  cdt -e, --edit                Edit registry with $VISUAL / $EDITOR / vi
+  cdt -e, --edit                Edit registry with $VISUAL / $EDITOR / system editor
   cdt --doctor                  Check registry and recorded paths
   cdt init zsh                  Print shell integration
+  cdt init powershell           Print PowerShell 7 integration
   cdt -h, --help                Show help
   cdt -V, --version             Show version
 
@@ -34,6 +39,7 @@ Options: -a/--add, -d/--delete, -r/--remove, -l/--list, -e/--edit, -p/--path
 Short options combine: cdt -ap PATH TAG...; cdt -dp PATH
 Use -- before tags beginning with '-'.
 Enable jumping: eval "$(command cdt init zsh)"
+PowerShell 7: cdt.exe init powershell | Out-String | Invoke-Expression
 `
 
 type Options struct {
@@ -133,8 +139,15 @@ type Response struct {
 }
 
 func execute(args []string, in io.Reader, out io.Writer) error {
-	if len(args) == 2 && args[0] == "init" && args[1] == "zsh" {
-		_, err := io.WriteString(out, shell)
+	if len(args) > 0 && args[0] == "init" {
+		if len(args) != 2 || (args[1] != "zsh" && args[1] != "powershell") {
+			return errors.New("usage: cdt init zsh|powershell")
+		}
+		integration := shell
+		if args[1] == "powershell" {
+			integration = powershell
+		}
+		_, err := io.WriteString(out, integration)
 		return err
 	}
 	if len(args) > 0 && args[0] == "__decode" {
@@ -236,7 +249,11 @@ func execute(args []string, in io.Reader, out io.Writer) error {
 			}
 		}
 		fmt.Fprintf(out, "registry: %s (%d records)\n", file, len(r.Entries))
-		fmt.Fprintln(out, "shell: run 'whence -w cdt' in zsh; it should report a function")
+		if runtime.GOOS == "windows" {
+			fmt.Fprintln(out, "shell: run 'Get-Command cdt' in PowerShell; it should report a function")
+		} else {
+			fmt.Fprintln(out, "shell: run 'whence -w cdt' in zsh; it should report a function")
+		}
 		if bad {
 			return errors.New("invalid recorded paths; remove with cdt -dp PATH")
 		}
@@ -244,6 +261,9 @@ func execute(args []string, in io.Reader, out io.Writer) error {
 	}
 	if o.Op == "list" {
 		return writeTree(out, matches(r, o.Tags, false))
+	}
+	if runtime.GOOS == "windows" {
+		return errors.New("jumping requires PowerShell integration: cdt.exe init powershell | Out-String | Invoke-Expression")
 	}
 	return errors.New("jumping requires zsh integration: eval \"$(command cdt init zsh)\"")
 }

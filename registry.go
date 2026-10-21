@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"unicode"
 	"unicode/utf8"
 )
@@ -27,11 +26,11 @@ type Registry struct {
 func registryPath() (string, error) {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
-		home, err := os.UserHomeDir()
+		var err error
+		base, err = defaultConfigBase()
 		if err != nil {
 			return "", err
 		}
-		base = filepath.Join(home, ".config")
 	}
 	if !filepath.IsAbs(base) {
 		return "", errors.New("XDG_CONFIG_HOME must be absolute")
@@ -63,7 +62,7 @@ func unique(tags []string) []string {
 
 func load(file string) (Registry, error) {
 	r := Registry{Version: 1, Entries: []Entry{}}
-	f, err := os.Open(file)
+	f, err := openRegistry(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return r, nil
 	}
@@ -121,15 +120,7 @@ func save(file string, r Registry) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(f.Name(), file); err != nil {
-		return err
-	}
-	dir, err := os.Open(filepath.Dir(file))
-	if err != nil {
-		return err
-	}
-	defer dir.Close()
-	return dir.Sync()
+	return replaceRegistry(f.Name(), file)
 }
 
 func update(file string, change func(*Registry) error) error {
@@ -154,10 +145,10 @@ func withRegistryLock(file string, action func() error) error {
 		return err
 	}
 	defer lock.Close()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err := lockRegistryFile(lock); err != nil {
 		return err
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	defer unlockRegistryFile(lock)
 	return action()
 }
 

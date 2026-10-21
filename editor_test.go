@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -13,7 +15,7 @@ func seedRegistry(t *testing.T) string {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "cdt", "registry.json")
 	if err := update(file, func(r *Registry) error {
-		r.Entries = []Entry{{"/work", []string{"old"}}}
+		r.Entries = testEntries([]Entry{{"/work", []string{"old"}}})
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -40,7 +42,7 @@ func TestEditValidation(t *testing.T) {
 			err := editRegistry(file, func(name string) error {
 				draft = name
 				info, err := os.Stat(name)
-				if err != nil || info.Mode().Perm() != 0600 {
+				if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0600) {
 					t.Fatalf("draft not private: %v %v", info, err)
 				}
 				return os.WriteFile(name, []byte(tc.content), 0600)
@@ -62,7 +64,11 @@ func TestEditSuccess(t *testing.T) {
 	var draft string
 	err := editRegistry(file, func(name string) error {
 		draft = name
-		return os.WriteFile(name, []byte(`{"version":1,"entries":[{"path":"/work","tags":["new","new"]}]}`), 0600)
+		data, err := json.Marshal(Registry{1, testEntries([]Entry{{"/work", []string{"new", "new"}}})})
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(name, data, 0600)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +81,7 @@ func TestEditSuccess(t *testing.T) {
 		t.Fatal("successful draft should be removed", err)
 	}
 	info, _ := os.Stat(file)
-	if info.Mode().Perm() != 0600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Fatal("registry permissions", info.Mode())
 	}
 	before, _ := os.ReadFile(file)
@@ -160,7 +166,7 @@ func TestEditCreateConflict(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "cdt", "registry.json")
 	err := editRegistry(file, func(string) error {
 		return update(file, func(r *Registry) error {
-			r.Entries = []Entry{{"/other", []string{"tag"}}}
+			r.Entries = testEntries([]Entry{{"/other", []string{"tag"}}})
 			return nil
 		})
 	})
@@ -172,7 +178,7 @@ func TestEditCreateConflict(t *testing.T) {
 func TestPreferredEditor(t *testing.T) {
 	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "")
-	if preferredEditor() != "vi" {
+	if preferredEditor() != defaultEditor {
 		t.Fatal("missing default")
 	}
 	t.Setenv("EDITOR", "nano")
@@ -197,7 +203,7 @@ func TestExecuteEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := update(file, func(r *Registry) error {
-		r.Entries = []Entry{{"/work", []string{"old"}}}
+		r.Entries = testEntries([]Entry{{"/work", []string{"old"}}})
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -207,7 +213,11 @@ func TestExecuteEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("CDT_TEST_EDITOR", "1")
-	t.Setenv("VISUAL", "'"+strings.ReplaceAll(exe, "'", "'\\''")+"' -test.run=^TestEditorProcess$ -- replace")
+	quoted := "'" + strings.ReplaceAll(exe, "'", "'\\''") + "'"
+	if runtime.GOOS == "windows" {
+		quoted = "'" + strings.ReplaceAll(exe, "'", "''") + "'"
+	}
+	t.Setenv("VISUAL", quoted+" -test.run=^TestEditorProcess$ -- replace")
 	t.Setenv("EDITOR", "false")
 	var out bytes.Buffer
 	if err := execute([]string{"--edit"}, strings.NewReader(""), &out); err != nil {

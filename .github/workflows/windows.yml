@@ -1,0 +1,33 @@
+name: Windows
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: amd64
+          - os: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check formatting
+        run: if (gofmt -l .) { throw 'Go files need formatting' }
+      - run: go vet ./...
+      - name: Test Windows storage and CLI
+        run: |
+          if ('${{ matrix.arch }}' -eq 'amd64') { go test -race ./... }
+          else { go test ./... }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: go build -o cdt.exe .
+      - run: pwsh -NoProfile -NonInteractive -File tests/powershell.ps1
+      - run: python tests/powershell_pty.py -v

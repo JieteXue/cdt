@@ -4,40 +4,41 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestTree(t *testing.T) {
-	entries := []Entry{
+	entries := testEntries([]Entry{
 		{"/work/web", []string{"web"}},
 		{"/workspace/api", []string{"api"}},
 		{"/work/api/deep", []string{"deep"}},
 		{"/work", []string{"work"}},
 		{"/work/api", []string{"api"}},
 		{"/work/services/中文 '", []string{"service"}},
-	}
+	})
 	var out bytes.Buffer
 	if err := writeTree(&out, entries); err != nil {
 		t.Fatal(err)
 	}
-	want := "/work  [work]\n" +
+	want := testPath("/work") + "  [work]\n" +
 		"\u251c\u2500\u2500 api  [api]\n" +
 		"\u2502   \u2514\u2500\u2500 deep  [deep]\n" +
-		"\u251c\u2500\u2500 services/中文 '  [service]\n" +
+		"\u251c\u2500\u2500 " + filepath.Join("services", "中文 '") + "  [service]\n" +
 		"\u2514\u2500\u2500 web  [web]\n" +
-		"/workspace/api  [api]\n"
+		testPath("/workspace/api") + "  [api]\n"
 	if out.String() != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", &out, want)
 	}
-	if entries[0].Path != "/work/web" {
+	if entries[0].Path != testPath("/work/web") {
 		t.Fatal("tree changed input order")
 	}
 	out.Reset()
 	if err := writeTree(&out, matches(Registry{1, entries}, []string{"work", "api"}, false)); err != nil {
 		t.Fatal(err)
 	}
-	if out.String() != "/work/api  [api]\n" {
+	if out.String() != testPath("/work/api")+"  [api]\n" {
 		t.Fatalf("filtered tree leaked nonmatching nodes: %s", &out)
 	}
 }
@@ -48,7 +49,7 @@ func TestTreeRootEmptyAndControlCharacters(t *testing.T) {
 		want    string
 	}{
 		{nil, ""},
-		{[]Entry{{"/", []string{}}, {"/a\nb", []string{"tag"}}}, "/  []\n\u2514\u2500\u2500 a\uFFFDb  [tag]\n"},
+		{testEntries([]Entry{{"/", []string{}}, {"/a\nb", []string{"tag"}}}), testPath("/") + "  []\n\u2514\u2500\u2500 a\uFFFDb  [tag]\n"},
 	} {
 		var out bytes.Buffer
 		if err := writeTree(&out, tc.entries); err != nil || out.String() != tc.want {
@@ -61,7 +62,7 @@ func TestListTree(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	file, _ := registryPath()
 	if err := update(file, func(r *Registry) error {
-		r.Entries = []Entry{{"/missing", []string{"parent"}}, {"/missing/child", []string{"child"}}}
+		r.Entries = testEntries([]Entry{{"/missing", []string{"parent"}}, {"/missing/child", []string{"child"}}})
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -70,7 +71,7 @@ func TestListTree(t *testing.T) {
 	if err := execute([]string{"-l"}, strings.NewReader(""), &out); err != nil {
 		t.Fatal(err)
 	}
-	if out.String() != "/missing  [parent]\n\u2514\u2500\u2500 child  [child]\n" {
+	if out.String() != testPath("/missing")+"  [parent]\n\u2514\u2500\u2500 child  [child]\n" {
 		t.Fatal("stale paths missing or inherited tags shown:", &out)
 	}
 }
