@@ -23,7 +23,7 @@ Usage:
   cdt -a [-p PATH] [TAG...]      Register a directory / append tags
   cdt -d [-p PATH]               Unregister a directory (never deletes files)
   cdt -r [-p PATH] TAG...        Remove explicit tags
-  cdt -l [TAG...]               List records (including stale paths)
+  cdt -l [TAG...]               List records as a tree (including stale paths)
   cdt -e, --edit                Edit registry with $VISUAL / $EDITOR / vi
   cdt --doctor                  Check registry and recorded paths
   cdt init zsh                  Print shell integration
@@ -243,10 +243,7 @@ func execute(args []string, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	if o.Op == "list" {
-		for _, e := range matches(r, o.Tags, false) {
-			fmt.Fprintln(out, display(e))
-		}
-		return nil
+		return writeTree(out, matches(r, o.Tags, false))
 	}
 	return errors.New("jumping requires zsh integration: eval \"$(command cdt init zsh)\"")
 }

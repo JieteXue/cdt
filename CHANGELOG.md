@@ -6,6 +6,7 @@
 - Explain repeated input and existing tags; avoid rewriting unchanged records.
 - Confirm interactive zsh jumps and cancelled menu selections.
 - Keep noninteractive jumps silent and internal JSON responses unchanged.
+- Display `-l` results as a path tree with own tags and matching records only.
 
 ## 0.2.0
 

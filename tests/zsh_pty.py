@@ -122,6 +122,18 @@ class Integration(unittest.TestCase):
         self.assertIn(b"unregistered", out)
         self.assertTrue(self.a.is_dir())
 
+    def test_list_tree(self):
+        self.run_cdt("-ap", str(self.root), "work")
+        out, code = self.shell.command("cdt -l")
+        self.assertEqual(code, b"0", out)
+        self.assertIn((str(self.root) + "  [work]").encode(), out)
+        self.assertIn("\u251c\u2500\u2500 a space ' $(touch PWNED)  [alpha, api]".encode(), out)
+        self.assertIn("\u2514\u2500\u2500 b 中文  [api, beta]".encode(), out)
+        out, code = self.shell.command("cdt -l work alpha")
+        self.assertEqual(code, b"0", out)
+        self.assertIn((str(self.a) + "  [alpha, api]").encode(), out)
+        self.assertNotIn((str(self.root) + "  [work]").encode(), out)
+
     def test_menu_accept(self):
         self.shell.command("zmodload zsh/complist; bindkey -M menuselect '^M' accept-line; bindkey -M menuselect '^G' send-break")
         self.shell.data = b""

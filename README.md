@@ -23,7 +23,7 @@ does not edit your shell configuration. No fzf, Python, or Go is needed at runti
 cdt -a work                         # tag the current directory
 cdt -ap ~/projects/api api backend  # register another directory and add tags
 cdt work api                        # jump by unordered tags
-cdt -l                             # list all registered paths and own tags
+cdt -l                             # show registered paths and own tags as a tree
 cdt -l work api                     # list matching records without jumping
 cdt -rp ~/projects/api backend      # remove an explicit tag
 cdt -dp ~/projects/api              # unregister; never deletes the directory
@@ -80,6 +80,24 @@ and `/personal/api` also tagged `api`:
 Only registered paths are candidates. No directory tree is scanned. Parent tags
 take effect even when the parent was registered later; removing a parent record
 immediately removes its inherited tags without unregistering children.
+
+`cdt -l` groups records under their nearest registered ancestor. Tree roots show
+absolute paths; descendants show paths relative to their displayed parent. Only
+own tags appear, including `[]` for a record without own tags:
+
+```text
+/Users/you/projects  [work]
+├── api  [api, backend]
+│   └── tests  [test]
+└── web  [web]
+/Users/you/personal  [personal]
+```
+
+`cdt -l TAG...` builds the same tree from matching records only. An unmatched
+parent is omitted, so its matching descendant becomes an absolute-path root.
+Unregistered intermediate directories stay in a relative label such as
+`services/api`; they are not extra records. Listing does not scan the filesystem
+and continues to include stale paths for inspection.
 
 A unique match jumps directly. Multiple matches open a native zsh completion
 menu: Tab/arrows select, Enter confirms, Ctrl-G/Ctrl-C cancel. Only explicit tags
