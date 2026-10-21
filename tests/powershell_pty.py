@@ -157,7 +157,7 @@ class Shell:
         self.reader = threading.Thread(target=self.read, daemon=True)
         self.reader.start()
         try:
-            self.until(b"CDT_PROMPT> ", timeout=40)
+            self.until(b"CDT_PROMPT>", timeout=40)
         except BaseException:
             self.close()
             raise
@@ -198,7 +198,7 @@ class Shell:
         self.send("Write-Output ('CDT_DONE' + '_' + $global:LASTEXITCODE)\r")
         out = self.until(b"CDT_DONE_")
         status = self.until(b"\n").strip()
-        self.until(b"CDT_PROMPT> ")
+        self.until(b"CDT_PROMPT>")
         return out, status
 
     def close(self):
@@ -234,14 +234,14 @@ class PowerShellTerminalTests(unittest.TestCase):
     def test_tab_and_enter(self):
         self.menu()
         self.shell.send(b"\t\r")
-        out = self.shell.until(b"CDT_PROMPT> ")
+        out = self.shell.until(b"CDT_PROMPT>")
         self.assertIn(b"cdt: entered ", out)
         self.assertEqual(self.location(self.b), b"0")
 
     def test_arrows(self):
         self.menu()
         self.shell.send(b"\x1b[B\x1b[A\r")
-        self.shell.until(b"CDT_PROMPT> ")
+        self.shell.until(b"CDT_PROMPT>")
         self.assertEqual(self.location(self.a), b"0")
 
     def test_cancel_and_restore(self):
@@ -252,7 +252,7 @@ class PowerShellTerminalTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.menu()
                 self.shell.send(key)
-                out = self.shell.until(b"CDT_PROMPT> ")
+                out = self.shell.until(b"CDT_PROMPT>")
                 self.assertIn(b"cdt: cancelled; directory unchanged", out)
                 self.assertEqual(self.location(self.a), b"130")
                 out, _ = self.shell.command("Write-Output ('CTRL:' + [Console]::TreatControlCAsInput)")
