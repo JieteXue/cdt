@@ -1,4 +1,5 @@
 /cdt
+/cdt.exe
 /dist/
 *.test
 __pycache__/
