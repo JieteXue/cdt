@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -47,7 +48,7 @@ func TestEditValidation(t *testing.T) {
 				}
 				return os.WriteFile(name, []byte(tc.content), 0600)
 			})
-			if err == nil || !strings.Contains(err.Error(), draft) {
+			if err == nil || !strings.Contains(err.Error(), strconv.Quote(draft)) {
 				t.Fatal("invalid draft must be retained with its path", err)
 			}
 			after, _ := os.ReadFile(file)
@@ -217,7 +218,11 @@ func TestExecuteEdit(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		quoted = "'" + strings.ReplaceAll(exe, "'", "''") + "'"
 	}
-	t.Setenv("VISUAL", quoted+" -test.run=^TestEditorProcess$ -- replace")
+	editorArgs := " -test.run=^TestEditorProcess$ -- replace"
+	if runtime.GOOS == "windows" {
+		editorArgs = " '-test.run=^TestEditorProcess$' -- replace"
+	}
+	t.Setenv("VISUAL", quoted+editorArgs)
 	t.Setenv("EDITOR", "false")
 	var out bytes.Buffer
 	if err := execute([]string{"--edit"}, strings.NewReader(""), &out); err != nil {

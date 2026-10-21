@@ -57,6 +57,11 @@ try {
     $line = "cdt -ap '" + (Join-Path $root 'target-comp')
     $completion = TabExpansion2 $line $line.Length
     Assert (@($completion.CompletionMatches | Where-Object ListItemText -eq 'target-completion').Count -eq 1) 'directory completion failed'
+    $before = (Get-Location).ProviderPath
+    Set-Location Env:
+    cdt -a should-not-register
+    Assert ($LASTEXITCODE -eq 1) 'mutation from a non-filesystem provider was allowed'
+    Set-Location -LiteralPath $before
     $null = cdt -a -- -special
     cdt -- -special
     Assert ($LASTEXITCODE -eq 0) 'end-of-options tag failed'

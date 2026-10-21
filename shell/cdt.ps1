@@ -101,6 +101,7 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
             return
         }
         $ended = $false
+        $mutates = $false
         $native = $arguments.Count -eq 0 -or
             ($arguments.Count -eq 2 -and $arguments[0] -eq 'init')
         $tags = [Collections.Generic.List[string]]::new()
@@ -109,11 +110,20 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
                 $ended = $true
             } elseif (-not $ended -and $argument.StartsWith('-') -and $argument -ne '-') {
                 $native = $true
+                if ($argument -in @('--add', '--delete', '--remove') -or
+                    ($argument -notlike '--*' -and $argument.Split('p')[0] -match '[adr]')) {
+                    $mutates = $true
+                }
             } else {
                 $tags.Add($argument)
             }
         }
         if ($native) {
+            if ($mutates -and (Get-Location).Provider.Name -ne 'FileSystem') {
+                [Console]::Error.WriteLine('cdt: directory changes require a filesystem location')
+                $global:LASTEXITCODE = 1
+                return
+            }
             & $script:Executable @arguments
             $global:LASTEXITCODE = $LASTEXITCODE
             return
@@ -182,7 +192,15 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
             if (-not $ended -and $value.StartsWith('-')) { continue }
             $tags.Add($value)
         }
-        $prefix = $wordToComplete.Trim("'`"")
+        $prefix = $wordToComplete
+        $current = $commandAst.CommandElements | Where-Object {
+            $_.Extent.StartOffset -ge $cursorPosition - $wordToComplete.Length
+        } | Select-Object -First 1
+        if ($current -is [Management.Automation.Language.StringConstantExpressionAst]) {
+            $prefix = $current.Value
+        } elseif ($wordToComplete) {
+            return
+        }
         if ($expectPath) {
             $path = [Environment]::ExpandEnvironmentVariables($prefix)
             if ($path.StartsWith('~')) { $path = $HOME + $path.Substring(1) }
