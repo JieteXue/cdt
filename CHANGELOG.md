@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Report mutation paths, new/removed tags, skipped tags, and before/after own tags.
+- Explain repeated input and existing tags; avoid rewriting unchanged records.
+- Confirm interactive zsh jumps and cancelled menu selections.
+- Keep noninteractive jumps silent and internal JSON responses unchanged.
+
 ## 0.2.0
 
 - Add `cdt -e` / `--edit` to edit registry tags with VISUAL, EDITOR, or vi.

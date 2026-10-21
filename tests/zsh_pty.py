@@ -92,11 +92,35 @@ class Integration(unittest.TestCase):
         out, code = self.shell.command("cdt alpha; print -r -- HERE:$PWD")
         self.assertEqual(code, b"0", out)
         self.assertIn(("HERE:" + str(self.a)).encode(), out)
+        self.assertIn(b"cdt: entered ", out)
         self.assertFalse((ROOT / "PWNED").exists())
         script = 'eval "$(command cdt init zsh)"; before=$PWD; cdt api; rc=$?; [[ $PWD == $before ]]; print RESULT:$rc:$?'
         result = subprocess.run(["zsh", "-fc", script], env=self.env, capture_output=True)
         self.assertIn(b"RESULT:2:0", result.stdout)
         self.assertIn(b"ambiguous", result.stderr)
+        result = subprocess.run(["zsh", "-fc", 'eval "$(command cdt init zsh)"; cdt alpha'],
+                                env=self.env, capture_output=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, b"")
+        self.assertEqual(result.stderr, b"")
+
+    def test_mutation_feedback(self):
+        self.shell.command("cdt alpha")
+        out, code = self.shell.command("cdt -a api new new")
+        self.assertEqual(code, b"0", out)
+        for text in [b"Added: [new]", b"Already present (skipped): [api]",
+                     b"Repeated input (ignored): [new]",
+                     b"Previous (own): [alpha, api]", b"Current (own): [alpha, api, new]"]:
+            self.assertIn(text, out)
+        out, code = self.shell.command("cdt -a new")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(b"unchanged", out)
+        out, _ = self.shell.command("cdt -r new missing")
+        self.assertIn(b"Removed: [new]", out)
+        self.assertIn(b"Not set here (skipped): [missing]", out)
+        out, _ = self.shell.command("cdt -d")
+        self.assertIn(b"unregistered", out)
+        self.assertTrue(self.a.is_dir())
 
     def test_menu_accept(self):
         self.shell.command("zmodload zsh/complist; bindkey -M menuselect '^M' accept-line; bindkey -M menuselect '^G' send-break")
@@ -119,7 +143,8 @@ class Integration(unittest.TestCase):
         self.shell.send("cdt api\n")
         self.shell.until(b"[api, beta]")
         self.shell.send(b"\x07")
-        self.shell.until(b"CDT_PROMPT> ")
+        cancelled = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"cdt: cancelled; directory unchanged", cancelled)
         out, _ = self.shell.command("print -r -- HERE:$PWD")
         self.assertIn(b"HERE:/", out)
 
@@ -144,7 +169,8 @@ class Integration(unittest.TestCase):
         self.shell.send("cdt api\n")
         self.shell.until(b"[api, beta]")
         self.shell.send(b"\x03")
-        self.shell.until(b"CDT_PROMPT> ")
+        cancelled = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"cdt: cancelled; directory unchanged", cancelled)
         out, _ = self.shell.command("print -r -- HERE:$PWD")
         self.assertIn(("HERE:" + str(self.b)).encode(), out)
 

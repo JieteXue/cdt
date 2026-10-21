@@ -45,6 +45,27 @@ cdt -a -- -special
 cdt -- -special
 ```
 
+Mutations report the canonical path, tags added or removed, and previous/current
+own tags. For example, adding `api backend api` to a directory already tagged
+`api` reports:
+
+```text
+cdt: updated "/Users/you/projects/api"
+  Added: [backend]
+  Already present (skipped): [api]
+  Repeated input (ignored): [api]
+  Previous (own): [api]
+  Current (own): [api, backend]
+```
+
+Duplicate tags have always been deduplicated. Repeated additions now explicitly
+report `unchanged` and do not rewrite the registry. Removal reports tags not set
+on that directory separately; inherited tags are not own tags. Unregistering
+reports the removed own tags and preserves the directory and child records.
+An interactive jump confirms the selected path and own tags; cancelling confirms
+that the directory is unchanged. Successful noninteractive jumps remain silent,
+and internal JSON responses contain no human-facing messages.
+
 All query tags must match the path's own or inherited tags, and **at least one
 must match an own tag**. With `/work` tagged `work`, `/work/api` tagged `api`,
 and `/personal/api` also tagged `api`:

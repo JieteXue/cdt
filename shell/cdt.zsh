@@ -63,19 +63,31 @@ cdt() {
     zle -C _cdt_menu menu-select _cdt_candidates
     zle -N _cdt_start
     selected=''
+    local accepted=0
     {
       vared -e -M _cdt_select -i _cdt_start -p 'cdt> ' selected || return 130
+      accepted=1
     } always {
       for (( i=1; i <= $#menu_keys; i++ )); do
         bindkey -M menuselect "${menu_keys[i]}" "${menu_bindings[i]}"
       done
       bindkey -D _cdt_select
       zle -D _cdt_menu _cdt_start
+      if (( ! accepted )); then
+        print -u2 -r -- "cdt: cancelled; directory unchanged"
+      fi
     }
     # Never accept an edited path that was not in the original result set.
-    (( ${_cdt_paths[(Ie)$selected]} )) || return 1
+    (( ${_cdt_paths[(Ie)$selected]} )) || {
+      print -u2 -r -- "cdt: invalid selection; directory unchanged"
+      return 1
+    }
   fi
-  builtin cd -- "$selected"
+  builtin cd -- "$selected" || return
+  if [[ -o interactive && -t 2 ]]; then
+    print -u2 -r -- "cdt: entered ${_cdt_labels[${_cdt_paths[(Ie)$selected]}]}"
+  fi
+  return 0
 }
 
 _cdt_candidates() {

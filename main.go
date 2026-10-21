@@ -220,44 +220,7 @@ func execute(args []string, in io.Reader, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return update(file, func(r *Registry) error {
-			index := -1
-			for i, e := range r.Entries {
-				if e.Path == path {
-					index = i
-					break
-				}
-			}
-			if o.Op == "add" {
-				if index < 0 {
-					r.Entries = append(r.Entries, Entry{path, unique(o.Tags)})
-				} else {
-					r.Entries[index].Tags = unique(append(r.Entries[index].Tags, o.Tags...))
-				}
-				return nil
-			}
-			if index < 0 {
-				return fmt.Errorf("directory is not registered: %s", path)
-			}
-			if o.Op == "delete" {
-				r.Entries = append(r.Entries[:index], r.Entries[index+1:]...)
-				return nil
-			}
-			keep := []string{}
-			for _, t := range r.Entries[index].Tags {
-				remove := false
-				for _, target := range o.Tags {
-					if t == target {
-						remove = true
-					}
-				}
-				if !remove {
-					keep = append(keep, t)
-				}
-			}
-			r.Entries[index].Tags = keep
-			return nil
-		})
+		return mutate(file, path, o, out)
 	}
 	r, err := load(file)
 	if err != nil {
