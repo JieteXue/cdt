@@ -35,6 +35,14 @@ try {
     $root = (Invoke-Binary __query -- work | ConvertFrom-Json).entries[0].path
     Invoke-Binary init powershell | Out-String | Invoke-Expression
     Assert ((Get-Command cdt).CommandType -eq 'Function') 'integration did not install a function'
+    $before = (Get-Location).ProviderPath
+    $overview = cdt --tags | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $overview.Contains('DIRECTORIES')) 'tag overview failed'
+    Assert ($overview -match '(?m)^api\s+2\s*$') 'tag overview counted inherited tags or lost records'
+    $explanation = cdt --explain work alpha | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $explanation.Contains('Inherited: work <- ')) 'match explanation failed'
+    Assert ($explanation.Contains('Matches: 1 of 3 registered directories.')) 'match explanation disagrees with query'
+    Assert ((Get-Location).ProviderPath -eq $before) 'inspection changed directory'
     cdt alpha
     Assert ($LASTEXITCODE -eq 0 -and (Get-Location).ProviderPath -eq $a) 'literal path jump failed'
     $before = (Get-Location).ProviderPath
@@ -52,7 +60,7 @@ try {
     $query = Invoke-Binary __query -- work alpha | ConvertFrom-Json
     Assert (@($query.entries).Count -eq 1) 'inheritance query failed'
     Assert (@($query.entries[0].tags).Count -eq 2) 'inherited tag was persisted'
-    foreach ($line in @('cdt alph', 'cdt work alph', ("cdt -ap '" + $a.Replace("'", "''") + "' alph"))) {
+    foreach ($line in @('cdt alph', 'cdt work alph', 'cdt --explain work alph', ("cdt -ap '" + $a.Replace("'", "''") + "' alph"))) {
         $completion = TabExpansion2 $line $line.Length
         Assert (@($completion.CompletionMatches | Where-Object ListItemText -eq 'alpha').Count -eq 1) "tag completion failed: $line"
     }

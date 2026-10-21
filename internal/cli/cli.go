@@ -24,6 +24,8 @@ Usage:
   cdt -l [TAG...]               List records as a tree (including stale paths)
   cdt -e, --edit                Edit registry with $VISUAL / $EDITOR / system editor
   cdt --doctor                  Check registry and recorded paths
+  cdt --tags                    List tags and direct directory counts
+  cdt --explain TAG...          Explain matches without jumping
   cdt init zsh                  Print shell integration
   cdt init powershell           Print PowerShell 7 integration
   cdt -h, --help                Show help
@@ -81,7 +83,7 @@ func parse(args []string) (Options, error) {
 			if attached {
 				return o, fmt.Errorf("--%s does not take a value", name)
 			}
-			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "help": "help", "version": "version"}[name]
+			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "tags": "tags", "explain": "explain", "help": "help", "version": "version"}[name]
 			if !ok {
 				return o, fmt.Errorf("unknown option --%s", name)
 			}
@@ -118,11 +120,14 @@ func parse(args []string) (Options, error) {
 	if o.PathSet && o.Op != "add" && o.Op != "delete" && o.Op != "remove" {
 		return o, errors.New("--path requires --add, --delete or --remove")
 	}
-	if (o.Op == "delete" || o.Op == "edit" || o.Op == "doctor" || o.Op == "help" || o.Op == "version") && len(o.Tags) > 0 {
+	if (o.Op == "delete" || o.Op == "edit" || o.Op == "doctor" || o.Op == "tags" || o.Op == "help" || o.Op == "version") && len(o.Tags) > 0 {
 		return o, errors.New("this operation does not accept tags")
 	}
 	if o.Op == "remove" && len(o.Tags) == 0 {
 		return o, errors.New("--remove requires tags")
+	}
+	if o.Op == "explain" && len(o.Tags) == 0 {
+		return o, errors.New("--explain requires tags")
 	}
 	return o, validTags(o.Tags)
 }
@@ -256,6 +261,12 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 	}
 	if o.Op == "list" {
 		return writeTree(out, matches(r, o.Tags, false))
+	}
+	if o.Op == "tags" {
+		return writeTags(out, r)
+	}
+	if o.Op == "explain" {
+		return writeExplanation(out, r, o.Tags)
 	}
 	if runtime.GOOS == "windows" {
 		return errors.New("jumping requires PowerShell integration: cdt.exe init powershell | Out-String | Invoke-Expression")

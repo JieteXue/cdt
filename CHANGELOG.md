@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add `--tags` with sorted tags and direct registered-directory counts.
+- Add read-only `--explain TAG...` with own matches, ancestor sources, missing
+  tags, inherited-only exclusions, and unavailable directory diagnostics.
+- Share tag assessment between navigation and explanations; extend native shell
+  tests and tag completion for diagnostic queries.
+
 ## 0.4.1
 
 - Add Windows PowerShell 7 navigation, tag/path completion, and console selection.

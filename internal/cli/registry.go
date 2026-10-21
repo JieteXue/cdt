@@ -189,29 +189,7 @@ func ancestor(parent, child string) bool {
 func matches(r Registry, tags []string, existingOnly bool) []Entry {
 	result := []Entry{}
 	for _, e := range r.Entries {
-		effective := map[string]bool{}
-		own := map[string]bool{}
-		for _, t := range e.Tags {
-			effective[t] = true
-			own[t] = true
-		}
-		for _, p := range r.Entries {
-			if ancestor(p.Path, e.Path) {
-				for _, t := range p.Tags {
-					effective[t] = true
-				}
-			}
-		}
-		all, direct := true, len(tags) == 0
-		for _, t := range tags {
-			if !effective[t] {
-				all = false
-			}
-			if own[t] {
-				direct = true
-			}
-		}
-		if !all || !direct {
+		if !evaluateMatch(r, e, tags).Matches {
 			continue
 		}
 		if existingOnly {

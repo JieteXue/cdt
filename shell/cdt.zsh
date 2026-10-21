@@ -104,13 +104,15 @@ _cdt() {
   local context state state_descr line
   typeset -A opt_args
   _arguments -s \
-    '(-d --delete -r --remove -l --list -e --edit)'{-a,--add}'[register directory / add tags]' \
-    '(-a --add -r --remove -l --list -e --edit)'{-d,--delete}'[unregister directory]' \
-    '(-a --add -d --delete -l --list -e --edit)'{-r,--remove}'[remove explicit tags]' \
-    '(-a --add -d --delete -r --remove -e --edit)'{-l,--list}'[list records]' \
-    '(-a --add -d --delete -r --remove -l --list -p --path *)'{-e,--edit}'[edit registry]' \
-    '(-p --path)'{-p,--path}'[target directory]:directory:_directories' \
-    '--doctor[check registry]' \
+    '(-d --delete -r --remove -l --list -e --edit --tags --explain)'{-a,--add}'[register directory / add tags]' \
+    '(-a --add -r --remove -l --list -e --edit --tags --explain)'{-d,--delete}'[unregister directory]' \
+    '(-a --add -d --delete -l --list -e --edit --tags --explain)'{-r,--remove}'[remove explicit tags]' \
+    '(-a --add -d --delete -r --remove -e --edit --tags --explain)'{-l,--list}'[list records]' \
+    '(-a --add -d --delete -r --remove -l --list -p --path --tags --explain *)'{-e,--edit}'[edit registry]' \
+    '(-p --path --tags --explain)'{-p,--path}'[target directory]:directory:_directories' \
+    '(--tags --explain)--doctor[check registry]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --explain *)--tags[list tags and direct directory counts]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags)--explain[explain tag matching]' \
     '(-h --help)'{-h,--help}'[show help]' \
     '(-V --version)'{-V,--version}'[show version]' \
     '*:tag:->tags'

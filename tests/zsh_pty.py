@@ -177,6 +177,26 @@ class Integration(unittest.TestCase):
         out, _ = self.shell.command("print -r -- HERE:$PWD")
         self.assertIn(("HERE:" + str(self.a)).encode(), out)
 
+    def test_inspection(self):
+        self.run_cdt("-ap", str(self.root), "work")
+        before = self.run_cdt("--explain", "work", "alpha").stdout
+        self.assertIn("Inherited: work <- ", before)
+        self.assertIn("Matches: 1 of 3 registered directories.", before)
+        out, code = self.shell.command("before=$PWD; cdt --tags; [[ $PWD == $before ]]")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(b"DIRECTORIES", out)
+        out, code = self.shell.command("before=$PWD; cdt --explain work; [[ $PWD == $before ]]")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(b"Reason: no query tag matches an own tag", out)
+        self.assertIn(b"Matches: 1 of 3 registered directories.", out)
+        self.shell.data = b""
+        self.shell.send("cdt --explain work alph\t")
+        time.sleep(0.3)
+        self.shell.send(b"\r")
+        out = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"Query: [alpha, work]", out)
+        self.assertIn(b"Matches: 1 of 3 registered directories.", out)
+
     def test_arrows_and_ctrl_c(self):
         self.shell.data = b""
         self.shell.send("cdt api\n")

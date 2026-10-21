@@ -81,13 +81,16 @@ cdt -rp ~/projects/api backend      # remove an explicit tag
 cdt -dp ~/projects/api              # unregister; never deletes the directory
 cdt -e                             # edit tags in the registry file
 cdt --doctor                       # report invalid recorded paths
+cdt --tags                         # list tags and direct directory counts
+cdt --explain work api             # explain matches without jumping
 ```
 
 `-ap PATH` equals `-a -p PATH` and `--add --path PATH`. Similarly, `-dp`
 unregisters a specified path. `-p` consumes the rest of a short-option group or
 the next argument: `-pa` means path `a`, not add. Without `-p`, mutations target
 the current directory. `-a` with no tags registers a directory with no own tags.
-`-r` requires tags. Mutation/list operations are mutually exclusive.
+`-r` requires tags. Operations, including `--tags` and `--explain`, are mutually
+exclusive. `--tags` accepts no tags; `--explain` requires at least one.
 
 Tags are exact, case-sensitive and unordered; Unicode is supported, whitespace
 and control characters are not. Use `--` for tags beginning with `-`:
@@ -132,6 +135,35 @@ and `/personal/api` also tagged `api`:
 Only registered paths are candidates. No directory tree is scanned. Parent tags
 take effect even when the parent was registered later; removing a parent record
 immediately removes its inherited tags without unregistering children.
+
+### Inspect tags and matches
+
+`cdt --tags` lists tags in case-sensitive sorted order and counts the registered
+directories that explicitly own each tag. Repeated tags in a record count once;
+inherited tags do not increase the counts. Stale records are included so forgotten
+tags remain discoverable:
+
+```text
+TAG   DIRECTORIES
+api   2
+work  1
+```
+
+`cdt --explain work api` explains every registered record using the same matching
+rules as jumping. It shows matching own tags, each inherited query tag and its
+registered ancestor sources, and missing query tags. An inherited-only match is
+excluded and says why. Tags owned by the record are shown as own matches even if
+an ancestor also supplies them.
+
+Records that satisfy the tag rules but are not usable directories are marked
+`UNAVAILABLE`; they are excluded from the match count, just as for jumping.
+Only tag-matching records are checked on disk; no directory tree is scanned.
+An explanation succeeds even when no paths match: it is a diagnostic report,
+not a jump. Repeated query tags are combined and displayed in sorted order.
+
+Both commands are read-only, never change the shell's current directory, and do
+not create a registry when one does not yet exist. Use
+`cdt --explain -- -special` to inspect a tag beginning with `-`.
 
 `cdt -l` groups records under their nearest registered ancestor. Tree roots show
 absolute paths; descendants show paths relative to their displayed parent. Only

@@ -185,6 +185,7 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
         foreach ($value in $before) {
             if ($expectPath) { $expectPath = $false; continue }
             if (-not $ended -and $value -eq '--') { $ended = $true; continue }
+            if (-not $ended -and $value -eq '--tags') { return }
             if (-not $ended -and ($value -eq '--path' -or $value -match '^-[adrl]*p$')) {
                 $expectPath = $true
                 continue
