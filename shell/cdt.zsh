@@ -104,21 +104,39 @@ _cdt() {
   local context state state_descr line
   typeset -A opt_args
   _arguments -s \
-    '(-d --delete -r --remove -l --list -e --edit --tags --explain)'{-a,--add}'[register directory / add tags]' \
-    '(-a --add -r --remove -l --list -e --edit --tags --explain)'{-d,--delete}'[unregister directory]' \
-    '(-a --add -d --delete -l --list -e --edit --tags --explain)'{-r,--remove}'[remove explicit tags]' \
-    '(-a --add -d --delete -r --remove -e --edit --tags --explain)'{-l,--list}'[list records]' \
-    '(-a --add -d --delete -r --remove -l --list -p --path --tags --explain *)'{-e,--edit}'[edit registry]' \
-    '(-p --path --tags --explain)'{-p,--path}'[target directory]:directory:_directories' \
-    '(--tags --explain)--doctor[check registry]' \
-    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --explain *)--tags[list tags and direct directory counts]' \
-    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags)--explain[explain tag matching]' \
+    '(-d --delete -r --remove -l --list -e --edit --tags --explain --move --recursive --dry-run)'{-a,--add}'[register directory / add tags]' \
+    '(-a --add -r --remove -l --list -e --edit --tags --explain --move --recursive --dry-run)'{-d,--delete}'[unregister directory]' \
+    '(-a --add -d --delete -l --list -e --edit --tags --explain --move --recursive --dry-run)'{-r,--remove}'[remove explicit tags]' \
+    '(-a --add -d --delete -r --remove -e --edit --tags --explain --move --recursive --dry-run)'{-l,--list}'[list records]' \
+    '(-a --add -d --delete -r --remove -l --list -p --path --tags --explain --move --recursive --dry-run *)'{-e,--edit}'[edit registry]' \
+    '(-p --path --tags --explain --move --recursive --dry-run)'{-p,--path}'[target directory]:directory:_directories' \
+    '(--tags --explain --move --recursive --dry-run)--doctor[check registry]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --explain --move --recursive --dry-run *)--tags[list tags and direct directory counts]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags --move --recursive --dry-run)--explain[explain tag matching]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags --explain)--move[relocate registrations; does not move files]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags --explain --recursive)--recursive[include registered descendants]' \
+    '(-a --add -d --delete -r --remove -l --list -e --edit -p --path --doctor --tags --explain --dry-run)--dry-run[preview relocation]' \
     '(-h --help)'{-h,--help}'[show help]' \
     '(-V --version)'{-V,--version}'[show version]' \
     '*:tag:->tags'
   if [[ "$state" == tags ]]; then
     local raw
     local -a records tags chosen
+    if (( ${+opt_args[--move]} )); then
+      if (( $#line <= 1 )); then
+        raw=$(_cdt_records __paths 2>/dev/null) || return
+        records=("${(@0)raw}")
+        local -a paths labels
+        local i
+        for (( i=1; i < $#records; i+=2 )); do
+          paths+=("${records[i]}")
+          labels+=("${records[i+1]}")
+        done
+        compadd -d labels -- "${paths[@]}"
+      fi
+      (( $#line <= 2 )) && _directories
+      return
+    fi
     # Only positional tags already parsed by _arguments constrain suggestions.
     chosen=("${line[@]}")
     (( $#chosen )) && chosen[-1]=()

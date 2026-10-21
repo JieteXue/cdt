@@ -26,6 +26,9 @@ Usage:
   cdt --doctor                  Check registry and recorded paths
   cdt --tags                    List tags and direct directory counts
   cdt --explain TAG...          Explain matches without jumping
+  cdt --move OLD NEW            Relocate a registration (does not move files)
+    --recursive                 Include registered descendants
+    --dry-run                   Preview relocation without changing records
   cdt init zsh                  Print shell integration
   cdt init powershell           Print PowerShell 7 integration
   cdt -h, --help                Show help
@@ -39,9 +42,12 @@ PowerShell 7: cdt.exe init powershell | Out-String | Invoke-Expression
 `
 
 type Options struct {
-	Op, Path string
-	Tags     []string
-	PathSet  bool
+	Op, Path          string
+	Tags              []string
+	PathSet           bool
+	MoveFrom          string
+	MoveTo            string
+	Recursive, DryRun bool
 }
 
 func parse(args []string) (Options, error) {
@@ -83,7 +89,15 @@ func parse(args []string) (Options, error) {
 			if attached {
 				return o, fmt.Errorf("--%s does not take a value", name)
 			}
-			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "tags": "tags", "explain": "explain", "help": "help", "version": "version"}[name]
+			if name == "recursive" {
+				o.Recursive = true
+				continue
+			}
+			if name == "dry-run" {
+				o.DryRun = true
+				continue
+			}
+			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "tags": "tags", "explain": "explain", "move": "move", "help": "help", "version": "version"}[name]
 			if !ok {
 				return o, fmt.Errorf("unknown option --%s", name)
 			}
@@ -119,6 +133,17 @@ func parse(args []string) (Options, error) {
 	}
 	if o.PathSet && o.Op != "add" && o.Op != "delete" && o.Op != "remove" {
 		return o, errors.New("--path requires --add, --delete or --remove")
+	}
+	if o.Op != "move" && (o.Recursive || o.DryRun) {
+		return o, errors.New("--recursive and --dry-run require --move")
+	}
+	if o.Op == "move" {
+		if len(o.Tags) != 2 || o.Tags[0] == "" || o.Tags[1] == "" {
+			return o, errors.New("--move requires exactly two nonempty paths: OLD NEW")
+		}
+		o.MoveFrom, o.MoveTo = o.Tags[0], o.Tags[1]
+		o.Tags = []string{}
+		return o, nil
 	}
 	if (o.Op == "delete" || o.Op == "edit" || o.Op == "doctor" || o.Op == "tags" || o.Op == "help" || o.Op == "version") && len(o.Tags) > 0 {
 		return o, errors.New("this operation does not accept tags")
@@ -173,7 +198,7 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		return nil
 	}
 	internal := ""
-	if len(args) > 0 && (args[0] == "__query" || args[0] == "__complete") {
+	if len(args) > 0 && (args[0] == "__query" || args[0] == "__complete" || args[0] == "__paths") {
 		internal, args = args[0], args[1:]
 	}
 	o, err := parse(args)
@@ -198,9 +223,15 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		if o.Op != "jump" {
 			return errors.New("query only accepts tags")
 		}
+		if internal == "__paths" && len(o.Tags) > 0 {
+			return errors.New("path completion does not accept tags")
+		}
 		r, err := load(file)
 		if err != nil {
 			return err
+		}
+		if internal == "__paths" {
+			return json.NewEncoder(out).Encode(Response{1, matches(r, nil, false)})
 		}
 		if internal == "__complete" {
 			// Suggest any effective tag that can still produce a direct match.
@@ -227,6 +258,9 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		}
 		fmt.Fprintln(out, "Registry saved.")
 		return nil
+	}
+	if o.Op == "move" {
+		return moveRegistry(file, o, out)
 	}
 	if o.Op == "add" || o.Op == "delete" || o.Op == "remove" {
 		path, err := canonical(o.Path, o.Op == "add")
@@ -255,7 +289,7 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 			fmt.Fprintln(out, "shell: run 'whence -w cdt' in zsh; it should report a function")
 		}
 		if bad {
-			return errors.New("invalid recorded paths; remove with cdt -dp PATH")
+			return errors.New("invalid recorded paths; relocate with cdt --move OLD NEW or remove with cdt -dp PATH")
 		}
 		return nil
 	}

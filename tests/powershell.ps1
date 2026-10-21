@@ -102,7 +102,37 @@ try {
     Invoke-Binary init powershell | Out-String | Invoke-Expression
     cdt beta
     Assert ($LASTEXITCODE -eq 0 -and (Get-Location).ProviderPath -eq $b) 'reinitialization failed'
-    Write-Output 'PASS: PowerShell navigation, feedback, completion, editor, and menu actions'
+    $migrationOld = Join-Path $root "move-old ' [literal]"
+    $migrationNew = Join-Path $root "move-new ' [literal]"
+    $null = [IO.Directory]::CreateDirectory((Join-Path $migrationOld 'api'))
+    $null = Invoke-Binary -ap $migrationOld move-root
+    $null = Invoke-Binary -ap (Join-Path $migrationOld 'api') move-leaf
+    Move-Item -LiteralPath $migrationOld -Destination $migrationNew
+    $before = (Get-Location).ProviderPath
+    $registry = Join-Path $env:XDG_CONFIG_HOME 'cdt' 'registry.json'
+    $snapshot = [IO.File]::ReadAllText($registry)
+    $line = "cdt --move '" + (Join-Path $root 'move-ol').Replace("'", "''")
+    $completion = TabExpansion2 $line $line.Length
+    Assert (@($completion.CompletionMatches | Where-Object ListItemText -eq $migrationOld).Count -eq 1) 'stale source completion failed'
+    $line = "cdt --move '" + $migrationOld.Replace("'", "''") + "' '" + (Join-Path $root 'move-ne').Replace("'", "''")
+    $completion = TabExpansion2 $line $line.Length
+    Assert (@($completion.CompletionMatches | Where-Object ListItemText -eq (Split-Path $migrationNew -Leaf)).Count -eq 1) 'migration destination completion failed'
+    $preview = cdt --move --recursive --dry-run $migrationOld $migrationNew | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $preview.Contains('migration preview (2 records; registry unchanged)')) 'migration preview failed'
+    Assert ([IO.File]::ReadAllText($registry) -eq $snapshot) 'preview changed registry'
+    $null = Invoke-Binary -ap (Join-Path $migrationNew 'api') existing
+    $snapshot = [IO.File]::ReadAllText($registry)
+    $null = cdt --move --recursive $migrationOld $migrationNew
+    Assert ($LASTEXITCODE -eq 1 -and [IO.File]::ReadAllText($registry) -eq $snapshot) 'migration conflict was not atomic'
+    $null = Invoke-Binary -dp (Join-Path $migrationNew 'api')
+    $report = cdt --move --recursive $migrationOld $migrationNew | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $report.Contains('migrated 2 records')) 'migration failed'
+    Assert ((Get-Location).ProviderPath -eq $before) 'migration changed current directory'
+    cdt move-root move-leaf
+    $expected = (Invoke-Binary __query -- move-leaf | ConvertFrom-Json).entries[0].path
+    Assert ($LASTEXITCODE -eq 0 -and (Get-Location).ProviderPath -eq $expected) 'migrated record cannot be entered'
+    Assert (-not [IO.Directory]::Exists($migrationOld) -and [IO.Directory]::Exists($migrationNew)) 'migration changed real directories'
+    Write-Output 'PASS: PowerShell navigation, feedback, completion, editor, migration, and menu actions'
 } finally {
     Set-Location -LiteralPath $originalLocation.ProviderPath
     $env:PATH = $originalPath

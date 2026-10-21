@@ -83,6 +83,8 @@ cdt -e                             # edit tags in the registry file
 cdt --doctor                       # report invalid recorded paths
 cdt --tags                         # list tags and direct directory counts
 cdt --explain work api             # explain matches without jumping
+cdt --move OLD NEW --dry-run       # preview relocation of a directory record
+cdt --move OLD NEW --recursive     # relocate records, not real directories
 ```
 
 `-ap PATH` equals `-a -p PATH` and `--add --path PATH`. Similarly, `-dp`
@@ -246,11 +248,47 @@ and the draft passes validation. Invalid edits, editor failures, or concurrent
 registry changes leave the current records untouched and retain the draft at
 the path printed in the error. Other `cdt` commands are not blocked while you edit.
 
-Moved directories are not guessed automatically. Unregister the old absolute
-path with `cdt -dp OLD`, then register the new path. Removing the final explicit
-tag leaves the directory registered.
+Removing the final explicit tag leaves the directory registered.
 
-The internal `__query`/`__complete` JSON protocol is versioned separately;
+### Relocate directory records
+
+After moving or renaming a real directory yourself, update its recorded path
+without re-entering its tags:
+
+```sh
+cdt --move /old/projects /new/projects --recursive --dry-run
+cdt --move /old/projects /new/projects --recursive
+```
+
+**This only changes registry records. It does not move, rename, create, or delete
+real directories, and it never changes your shell's current directory.**
+
+Without `--recursive`, only the source directory's record is changed; any
+registered descendants stay at their original paths and are reported separately.
+With `--recursive`, all registered records under the source prefix are relocated
+by relative path. The prefix itself need not be registered in recursive mode.
+Similar names such as `/projects-old` are not descendants of `/projects`.
+
+The old path may be missing. The new path and every relocated directory must
+already exist. Paths with spaces and Unicode are supported; quote them normally.
+Use `--` before paths beginning with `-`. Existing symlink aliases resolve to
+real destinations; a recursive child that resolves outside the destination
+subtree is rejected.
+
+`--dry-run` validates and prints the complete planned change without modifying
+the registry or creating a writer lock. Run the same command without `--dry-run`
+to apply it; the plan is recalculated against the latest records under the writer
+lock. Own tags are preserved, and inherited tags follow the new ancestry.
+
+Conflicts with existing destination registrations, multiple sources resolving
+to the same target, missing child directories, and overlapping recursive prefixes
+are rejected as a whole. Tags are never silently merged or overwritten. A
+same-path migration is a no-op and does not rewrite the registry.
+`--recursive` and `--dry-run` are only valid with `--move`; `-p` is not used.
+Both shells complete the destination as a directory and can suggest recorded
+source paths even after those directories have moved.
+
+The internal `__query`/`__complete`/`__paths` JSON protocol is versioned separately;
 `__decode` converts it to NUL-framed records for zsh without an external parser.
 These internal commands are not a user-facing API.
 

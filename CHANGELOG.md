@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `--move OLD NEW` to relocate registrations without moving real files.
+- Support recursive prefix migration, read-only previews, stale source completion,
+  collision rejection, and atomic application under the registry writer lock.
 - Add `--tags` with sorted tags and direct registered-directory counts.
 - Add read-only `--explain TAG...` with own matches, ancestor sources, missing
   tags, inherited-only exclusions, and unavailable directory diagnostics.

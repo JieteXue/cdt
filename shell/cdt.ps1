@@ -110,7 +110,7 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
                 $ended = $true
             } elseif (-not $ended -and $argument.StartsWith('-') -and $argument -ne '-') {
                 $native = $true
-                if ($argument -in @('--add', '--delete', '--remove') -or
+                if ($argument -in @('--add', '--delete', '--remove', '--move') -or
                     ($argument -notlike '--*' -and $argument.Split('p')[0] -match '[adr]')) {
                     $mutates = $true
                 }
@@ -182,10 +182,12 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
         $tags = [Collections.Generic.List[string]]::new()
         $expectPath = $false
         $ended = $false
+        $moving = $false
         foreach ($value in $before) {
             if ($expectPath) { $expectPath = $false; continue }
             if (-not $ended -and $value -eq '--') { $ended = $true; continue }
             if (-not $ended -and $value -eq '--tags') { return }
+            if (-not $ended -and $value -eq '--move') { $moving = $true; continue }
             if (-not $ended -and ($value -eq '--path' -or $value -match '^-[adrl]*p$')) {
                 $expectPath = $true
                 continue
@@ -202,9 +204,27 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
         } elseif ($wordToComplete) {
             return
         }
-        if ($expectPath) {
+        if ($moving -and $tags.Count -ge 2) { return }
+        if ($expectPath -or $moving) {
             $path = [Environment]::ExpandEnvironmentVariables($prefix)
             if ($path.StartsWith('~')) { $path = $HOME + $path.Substring(1) }
+            if ($moving -and $tags.Count -eq 0 -and (Get-Location).Provider.Name -eq 'FileSystem') {
+                $absolute = if ([IO.Path]::IsPathRooted($path)) { $path } else {
+                    Join-Path (Get-Location).ProviderPath $path
+                }
+                try {
+                    $response = Get-CdtResponse '__paths' @()
+                    foreach ($entry in $response.entries) {
+                        if (-not [IO.Directory]::Exists($entry.path) -and
+                            $entry.path.StartsWith($absolute, [StringComparison]::OrdinalIgnoreCase)) {
+                            $quoted = "'" + $entry.path.Replace("'", "''") + "'"
+                            [Management.Automation.CompletionResult]::new($quoted, $entry.path, 'ProviderContainer', $entry.path)
+                        }
+                    }
+                } catch {
+                    # A damaged registry must not interrupt ordinary path completion.
+                }
+            }
             if (-not $path -or $path.EndsWith([string][IO.Path]::DirectorySeparatorChar)) {
                 $parent = $path
                 $leaf = ''

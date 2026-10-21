@@ -20,7 +20,7 @@ func TestParse(t *testing.T) {
 		{"api", "--add", "--path", "/tmp/project", "backend"},
 	} {
 		got, err := parse(args)
-		want := Options{"add", "/tmp/project", []string{"api", "backend"}, true}
+		want := Options{Op: "add", Path: "/tmp/project", Tags: []string{"api", "backend"}, PathSet: true}
 		if err != nil || !reflect.DeepEqual(got, want) {
 			t.Fatalf("%v: %+v %v", args, got, err)
 		}

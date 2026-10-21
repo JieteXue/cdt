@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import pty
 import select
+import shlex
 import signal
 import shutil
 import struct
@@ -196,6 +197,42 @@ class Integration(unittest.TestCase):
         out = self.shell.until(b"CDT_PROMPT> ")
         self.assertIn(b"Query: [alpha, work]", out)
         self.assertIn(b"Matches: 1 of 3 registered directories.", out)
+
+    def test_record_migration(self):
+        old = self.root / "move-old ' [literal]"
+        target = self.root / "move-new ' [literal]"
+        (old / "api").mkdir(parents=True)
+        self.run_cdt("-ap", str(old), "move-root")
+        self.run_cdt("-ap", str(old / "api"), "move-leaf")
+        old.rename(target)
+        registry = self.root / "config" / "cdt" / "registry.json"
+        before = registry.read_bytes()
+        # The source no longer exists, so completion must use recorded paths.
+        self.shell.data = b""
+        self.shell.send("cdt --move " + str(self.root / "move-ol") + "\t")
+        time.sleep(0.3)
+        self.shell.send(" " + shlex.quote(str(target)) + " --recursive --dry-run\r")
+        out = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"migration preview (2 records; registry unchanged)", out)
+        self.assertEqual(registry.read_bytes(), before)
+        # The second operand completes directories, not tags or source records.
+        self.shell.data = b""
+        self.shell.send("cdt --move --recursive " + shlex.quote(str(old)) + " " +
+                        str(self.root / "move-ne") + "\t")
+        time.sleep(0.3)
+        self.shell.send(" --dry-run\r")
+        out = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"migration preview (2 records; registry unchanged)", out)
+        self.assertEqual(registry.read_bytes(), before)
+        command = ("before=$PWD; cdt --move --recursive " + shlex.quote(str(old)) +
+                   " " + shlex.quote(str(target)) + "; rc=$?; [[ $rc == 0 && $PWD == $before ]]")
+        out, code = self.shell.command(command)
+        self.assertEqual(code, b"0", out)
+        self.assertIn(b"migrated 2 records", out)
+        out, code = self.shell.command("cdt move-root move-leaf; print -r -- HERE:$PWD")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(("HERE:" + str(target / "api")).encode(), out)
+        self.assertFalse(old.exists())
 
     def test_arrows_and_ctrl_c(self):
         self.shell.data = b""
