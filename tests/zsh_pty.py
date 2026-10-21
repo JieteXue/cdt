@@ -174,6 +174,17 @@ class Integration(unittest.TestCase):
         out, _ = self.shell.command("cdt added; print -r -- HERE:$PWD")
         self.assertIn(("HERE:" + str(target)).encode(), out)
 
+    def test_edit_in_vi(self):
+        self.shell.command("export VISUAL=; export EDITOR='vi -u NONE -N -i NONE'")
+        self.shell.data = b""
+        self.shell.send("cdt -e\n")
+        self.shell.until(b".edit-")
+        self.shell.send(b"\x1b:%s/alpha/edited/g\r:wq\r")
+        self.shell.until(b"CDT_PROMPT> ")
+        out, code = self.shell.command("cdt edited; print -r -- HERE:$PWD")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(("HERE:" + str(self.a)).encode(), out)
+
 
 if __name__ == "__main__":
     unittest.main()

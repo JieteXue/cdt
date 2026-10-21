@@ -30,9 +30,16 @@ func TestParse(t *testing.T) {
 			t.Fatalf("%v: %+v %v", args, got, err)
 		}
 	}
+	for _, args := range [][]string{{"-e"}, {"--edit"}} {
+		got, err := parse(args)
+		if err != nil || got.Op != "edit" {
+			t.Fatalf("%v: %+v %v", args, got, err)
+		}
+	}
 	for _, args := range [][]string{
 		{"-p"}, {"--path"}, {"-ad"}, {"-rl"}, {"-d", "tag"}, {"-r"}, {"-lp", "/tmp"},
 		{"-x"}, {"--bad"}, {"--add=yes"}, {"--path=", "-a"}, {"-a", "bad tag"}, {"-a", "bad\n"},
+		{"-ae"}, {"-el"}, {"-ep", "/tmp"}, {"--edit", "tag"},
 	} {
 		if _, err := parse(args); err == nil {
 			t.Fatalf("accepted invalid args %v", args)

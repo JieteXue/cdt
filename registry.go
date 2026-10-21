@@ -133,6 +133,19 @@ func save(file string, r Registry) error {
 }
 
 func update(file string, change func(*Registry) error) error {
+	return withRegistryLock(file, func() error {
+		r, err := load(file)
+		if err != nil {
+			return err
+		}
+		if err := change(&r); err != nil {
+			return err
+		}
+		return save(file, r)
+	})
+}
+
+func withRegistryLock(file string, action func() error) error {
 	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 		return err
 	}
@@ -145,14 +158,7 @@ func update(file string, change func(*Registry) error) error {
 		return err
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-	r, err := load(file)
-	if err != nil {
-		return err
-	}
-	if err := change(&r); err != nil {
-		return err
-	}
-	return save(file, r)
+	return action()
 }
 
 func canonical(path string, requireDirectory bool) (string, error) {

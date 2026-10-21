@@ -27,6 +27,7 @@ cdt -l                             # list all registered paths and own tags
 cdt -l work api                     # list matching records without jumping
 cdt -rp ~/projects/api backend      # remove an explicit tag
 cdt -dp ~/projects/api              # unregister; never deletes the directory
+cdt -e                             # edit tags in the registry file
 cdt --doctor                       # report invalid recorded paths
 ```
 
@@ -75,6 +76,41 @@ explicit tags are persisted (schema version 1). Symlink aliases share a record.
 Spaces, quotes and shell metacharacters in paths are passed as data, never
 evaluated. Mutations use a file lock and atomic replacement. Corrupt or
 unsupported data is rejected without overwriting it.
+
+### Edit tags in a file
+
+```sh
+cdt -e
+cdt --edit                         # same command
+EDITOR=nano cdt -e                 # use nano if VISUAL is not set
+VISUAL="code --wait" cdt -e         # wait for a graphical editor to close
+```
+
+The editor is chosen from `$VISUAL`, then `$EDITOR`, then system `vi`. Editor
+flags are supported. The command shows the registry location and opens a private
+JSON draft. Edit each entry's `tags` array; inherited tags are computed, so do not
+copy them into child entries. For example:
+
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "/Users/you/projects/api",
+      "tags": ["api", "backend"]
+    }
+  ]
+}
+```
+
+Keep `version` as `1`, use absolute normalized real paths (not `~`), and keep
+tags free of whitespace. Save and close the editor to apply the changes.
+Duplicate tags are deduplicated. You can also repair a corrupt registry this way.
+
+The registry is atomically replaced only after the editor exits successfully
+and the draft passes validation. Invalid edits, editor failures, or concurrent
+registry changes leave the current records untouched and retain the draft at
+the path printed in the error. Other `cdt` commands are not blocked while you edit.
 
 Moved directories are not guessed automatically. Unregister the old absolute
 path with `cdt -dp OLD`, then register the new path. Removing the final explicit

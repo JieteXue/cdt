@@ -92,10 +92,11 @@ _cdt() {
   local context state state_descr line
   typeset -A opt_args
   _arguments -s \
-    '(-d --delete -r --remove -l --list)'{-a,--add}'[register directory / add tags]' \
-    '(-a --add -r --remove -l --list)'{-d,--delete}'[unregister directory]' \
-    '(-a --add -d --delete -l --list)'{-r,--remove}'[remove explicit tags]' \
-    '(-a --add -d --delete -r --remove)'{-l,--list}'[list records]' \
+    '(-d --delete -r --remove -l --list -e --edit)'{-a,--add}'[register directory / add tags]' \
+    '(-a --add -r --remove -l --list -e --edit)'{-d,--delete}'[unregister directory]' \
+    '(-a --add -d --delete -l --list -e --edit)'{-r,--remove}'[remove explicit tags]' \
+    '(-a --add -d --delete -r --remove -e --edit)'{-l,--list}'[list records]' \
+    '(-a --add -d --delete -r --remove -l --list -p --path *)'{-e,--edit}'[edit registry]' \
     '(-p --path)'{-p,--path}'[target directory]:directory:_directories' \
     '--doctor[check registry]' \
     '(-h --help)'{-h,--help}'[show help]' \

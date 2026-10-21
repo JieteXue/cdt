@@ -24,12 +24,13 @@ Usage:
   cdt -d [-p PATH]               Unregister a directory (never deletes files)
   cdt -r [-p PATH] TAG...        Remove explicit tags
   cdt -l [TAG...]               List records (including stale paths)
+  cdt -e, --edit                Edit registry with $VISUAL / $EDITOR / vi
   cdt --doctor                  Check registry and recorded paths
   cdt init zsh                  Print shell integration
   cdt -h, --help                Show help
   cdt -V, --version             Show version
 
-Options: -a/--add, -d/--delete, -r/--remove, -l/--list, -p/--path
+Options: -a/--add, -d/--delete, -r/--remove, -l/--list, -e/--edit, -p/--path
 Short options combine: cdt -ap PATH TAG...; cdt -dp PATH
 Use -- before tags beginning with '-'.
 Enable jumping: eval "$(command cdt init zsh)"
@@ -80,7 +81,7 @@ func parse(args []string) (Options, error) {
 			if attached {
 				return o, fmt.Errorf("--%s does not take a value", name)
 			}
-			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "doctor": "doctor", "help": "help", "version": "version"}[name]
+			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "help": "help", "version": "version"}[name]
 			if !ok {
 				return o, fmt.Errorf("unknown option --%s", name)
 			}
@@ -105,7 +106,7 @@ func parse(args []string) (Options, error) {
 				o.Path, o.PathSet = val, true
 				break
 			}
-			op, ok := map[byte]string{'a': "add", 'd': "delete", 'r': "remove", 'l': "list", 'h': "help", 'V': "version"}[a[j]]
+			op, ok := map[byte]string{'a': "add", 'd': "delete", 'r': "remove", 'l': "list", 'e': "edit", 'h': "help", 'V': "version"}[a[j]]
 			if !ok {
 				return o, fmt.Errorf("unknown option -%c", a[j])
 			}
@@ -117,7 +118,7 @@ func parse(args []string) (Options, error) {
 	if o.PathSet && o.Op != "add" && o.Op != "delete" && o.Op != "remove" {
 		return o, errors.New("--path requires --add, --delete or --remove")
 	}
-	if (o.Op == "delete" || o.Op == "doctor" || o.Op == "help" || o.Op == "version") && len(o.Tags) > 0 {
+	if (o.Op == "delete" || o.Op == "edit" || o.Op == "doctor" || o.Op == "help" || o.Op == "version") && len(o.Tags) > 0 {
 		return o, errors.New("this operation does not accept tags")
 	}
 	if o.Op == "remove" && len(o.Tags) == 0 {
@@ -203,6 +204,16 @@ func execute(args []string, in io.Reader, out io.Writer) error {
 			return json.NewEncoder(out).Encode(Response{1, entries})
 		}
 		return json.NewEncoder(out).Encode(Response{1, matches(r, o.Tags, true)})
+	}
+	if o.Op == "edit" {
+		fmt.Fprintf(out, "Editing registry: %q\n", file)
+		if err := editRegistry(file, func(draft string) error {
+			return launchEditor(draft, in, out)
+		}); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Registry saved.")
+		return nil
 	}
 	if o.Op == "add" || o.Op == "delete" || o.Op == "remove" {
 		path, err := canonical(o.Path, o.Op == "add")
