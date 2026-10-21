@@ -85,6 +85,8 @@ cdt --tags                         # list tags and direct directory counts
 cdt --explain work api             # explain matches without jumping
 cdt --move OLD NEW --dry-run       # preview relocation of a directory record
 cdt --move OLD NEW --recursive     # relocate records, not real directories
+cdt --rename-tag api backend --dry-run  # preview a global tag rename
+cdt --rename-tag api backend        # rename, merging existing target tags
 ```
 
 `-ap PATH` equals `-a -p PATH` and `--add --path PATH`. Similarly, `-dp`
@@ -284,12 +286,38 @@ Conflicts with existing destination registrations, multiple sources resolving
 to the same target, missing child directories, and overlapping recursive prefixes
 are rejected as a whole. Tags are never silently merged or overwritten. A
 same-path migration is a no-op and does not rewrite the registry.
-`--recursive` and `--dry-run` are only valid with `--move`; `-p` is not used.
+`--recursive` is only valid with `--move`; `-p` is not used.
 Both shells complete the destination as a directory and can suggest recorded
 source paths even after those directories have moved.
 
-The internal `__query`/`__complete`/`__paths` JSON protocol is versioned separately;
-`__decode` converts it to NUL-framed records for zsh without an external parser.
+### Rename a tag
+
+```sh
+cdt --rename-tag api backend --dry-run
+cdt --rename-tag api backend
+```
+
+Renaming changes the explicit tag on **all registered records**, including stale
+paths. Each affected path shows its previous and current own tags. If a record
+already owns the target tag, the two tags are merged without duplicates; the
+report counts these merges. Other tags and registrations are preserved.
+Inherited tags follow renamed ancestors automatically and are never copied into
+child records. No real directories or shell locations are changed.
+
+Tags remain exact and case-sensitive. An unknown source tag is an error; renaming
+an existing tag to itself succeeds without rewriting the registry. Both shells
+complete either operand from all registered tags, including stale-only tags.
+New names need not already exist. Use `--` before names starting with `-`:
+`cdt --rename-tag -- -old -new`.
+
+`--dry-run` is valid with `--move` and `--rename-tag`. It prints a snapshot preview
+without writing records or creating a lock; applying recalculates the change under
+the writer lock and atomically replaces the registry once. `--rename-tag` takes
+exactly two tags, is mutually exclusive with other operations, and does not accept
+`-p` or `--recursive`.
+
+The internal `__query`/`__complete`/`__paths`/`__tags` JSON protocol is versioned
+separately; `__decode` converts it to NUL-framed records for zsh without an external parser.
 These internal commands are not a user-facing API.
 
 ## Development

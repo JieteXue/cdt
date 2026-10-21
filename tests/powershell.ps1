@@ -132,7 +132,28 @@ try {
     $expected = (Invoke-Binary __query -- move-leaf | ConvertFrom-Json).entries[0].path
     Assert ($LASTEXITCODE -eq 0 -and (Get-Location).ProviderPath -eq $expected) 'migrated record cannot be entered'
     Assert (-not [IO.Directory]::Exists($migrationOld) -and [IO.Directory]::Exists($migrationNew)) 'migration changed real directories'
-    Write-Output 'PASS: PowerShell navigation, feedback, completion, editor, migration, and menu actions'
+    $stale = Join-Path $root 'rename-stale'
+    $null = [IO.Directory]::CreateDirectory($stale)
+    $null = Invoke-Binary -ap $stale rename-stale
+    [IO.Directory]::Delete($stale)
+    $null = Invoke-Binary -ap $migrationNew rename-old rename-new
+    foreach ($line in @('cdt --rename-tag rename-sta', 'cdt --rename-tag rename-stale rename-ne')) {
+        $completion = TabExpansion2 $line $line.Length
+        $expected = if ($line.EndsWith('rename-sta')) { 'rename-stale' } else { 'rename-new' }
+        Assert (@($completion.CompletionMatches | Where-Object ListItemText -eq $expected).Count -eq 1) "rename completion failed: $line"
+    }
+    $snapshot = [IO.File]::ReadAllText($registry)
+    $before = (Get-Location).ProviderPath
+    $preview = cdt --rename-tag rename-stale rename-new --dry-run | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $preview.Contains('tag rename preview (1 records; registry unchanged)')) 'rename preview failed'
+    Assert ([IO.File]::ReadAllText($registry) -eq $snapshot) 'rename preview changed registry'
+    $report = cdt --rename-tag rename-old rename-new | Out-String
+    Assert ($LASTEXITCODE -eq 0 -and $report.Contains('Existing target tags merged: 1')) 'rename merge failed'
+    Assert ((Get-Location).ProviderPath -eq $before) 'rename changed current directory'
+    cdt rename-new
+    Assert ($LASTEXITCODE -eq 0 -and (Get-Location).ProviderPath -eq $migrationNew) 'renamed tag cannot be entered'
+    Assert (-not [IO.Directory]::Exists($stale)) 'rename recreated stale directory'
+    Write-Output 'PASS: PowerShell navigation, feedback, completion, editor, migration, tag rename, and menu actions'
 } finally {
     Set-Location -LiteralPath $originalLocation.ProviderPath
     $env:PATH = $originalPath

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add global `--rename-tag OLD NEW` with read-only previews, per-path before/after
+  feedback, target-tag merging, and atomic application without touching directories.
+- Complete both rename operands from all recorded tags, including stale-only tags.
 - Add `--move OLD NEW` to relocate registrations without moving real files.
 - Support recursive prefix migration, read-only previews, stale source completion,
   collision rejection, and atomic application under the registry writer lock.

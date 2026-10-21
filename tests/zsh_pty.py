@@ -251,6 +251,33 @@ class Integration(unittest.TestCase):
         out, _ = self.shell.command("print -r -- HERE:$PWD")
         self.assertIn(("HERE:" + str(self.b)).encode(), out)
 
+    def test_tag_rename(self):
+        stale = self.root / "stale"
+        stale.mkdir()
+        self.run_cdt("-ap", str(stale), "rename-stale")
+        stale.rmdir()
+        self.run_cdt("-ap", str(self.a), "rename-old", "rename-new")
+        registry = self.root / "config" / "cdt" / "registry.json"
+        before = registry.read_bytes()
+        # Stale-only sources and unrelated existing targets must both complete.
+        self.shell.data = b""
+        self.shell.send("cdt --rename-tag rename-sta\t")
+        time.sleep(0.3)
+        self.shell.send(" rename-ne\t")
+        time.sleep(0.3)
+        self.shell.send(" --dry-run\r")
+        out = self.shell.until(b"CDT_PROMPT> ")
+        self.assertIn(b"tag rename preview (1 records; registry unchanged)", out)
+        self.assertIn(b"Current (own): [rename-new]", out)
+        self.assertEqual(registry.read_bytes(), before)
+        out, code = self.shell.command("before=$PWD; cdt --rename-tag rename-old rename-new; [[ $PWD == $before ]]")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(b"Existing target tags merged: 1", out)
+        out, code = self.shell.command("cdt rename-new; print -r -- HERE:$PWD")
+        self.assertEqual(code, b"0", out)
+        self.assertIn(("HERE:" + str(self.a)).encode(), out)
+        self.assertFalse(stale.exists())
+
     def test_inheritance_completion(self):
         self.run_cdt("-ap", str(self.a), "scoped")
         # Only a is under this registered parent; the other scope stays separate.

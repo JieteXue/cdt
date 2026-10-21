@@ -28,7 +28,8 @@ Usage:
   cdt --explain TAG...          Explain matches without jumping
   cdt --move OLD NEW            Relocate a registration (does not move files)
     --recursive                 Include registered descendants
-    --dry-run                   Preview relocation without changing records
+  cdt --rename-tag OLD NEW      Rename an own tag across all records
+    --dry-run                   Preview relocation or tag renaming
   cdt init zsh                  Print shell integration
   cdt init powershell           Print PowerShell 7 integration
   cdt -h, --help                Show help
@@ -97,7 +98,7 @@ func parse(args []string) (Options, error) {
 				o.DryRun = true
 				continue
 			}
-			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "tags": "tags", "explain": "explain", "move": "move", "help": "help", "version": "version"}[name]
+			op, ok := map[string]string{"add": "add", "delete": "delete", "remove": "remove", "list": "list", "edit": "edit", "doctor": "doctor", "tags": "tags", "explain": "explain", "move": "move", "rename-tag": "rename-tag", "help": "help", "version": "version"}[name]
 			if !ok {
 				return o, fmt.Errorf("unknown option --%s", name)
 			}
@@ -134,8 +135,11 @@ func parse(args []string) (Options, error) {
 	if o.PathSet && o.Op != "add" && o.Op != "delete" && o.Op != "remove" {
 		return o, errors.New("--path requires --add, --delete or --remove")
 	}
-	if o.Op != "move" && (o.Recursive || o.DryRun) {
-		return o, errors.New("--recursive and --dry-run require --move")
+	if o.Op != "move" && o.Recursive {
+		return o, errors.New("--recursive requires --move")
+	}
+	if o.Op != "move" && o.Op != "rename-tag" && o.DryRun {
+		return o, errors.New("--dry-run requires --move or --rename-tag")
 	}
 	if o.Op == "move" {
 		if len(o.Tags) != 2 || o.Tags[0] == "" || o.Tags[1] == "" {
@@ -153,6 +157,9 @@ func parse(args []string) (Options, error) {
 	}
 	if o.Op == "explain" && len(o.Tags) == 0 {
 		return o, errors.New("--explain requires tags")
+	}
+	if o.Op == "rename-tag" && len(o.Tags) != 2 {
+		return o, errors.New("--rename-tag requires exactly two tags: OLD NEW")
 	}
 	return o, validTags(o.Tags)
 }
@@ -198,7 +205,7 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		return nil
 	}
 	internal := ""
-	if len(args) > 0 && (args[0] == "__query" || args[0] == "__complete" || args[0] == "__paths") {
+	if len(args) > 0 && (args[0] == "__query" || args[0] == "__complete" || args[0] == "__paths" || args[0] == "__tags") {
 		internal, args = args[0], args[1:]
 	}
 	o, err := parse(args)
@@ -223,8 +230,8 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		if o.Op != "jump" {
 			return errors.New("query only accepts tags")
 		}
-		if internal == "__paths" && len(o.Tags) > 0 {
-			return errors.New("path completion does not accept tags")
+		if (internal == "__paths" || internal == "__tags") && len(o.Tags) > 0 {
+			return errors.New("unfiltered completion does not accept tags")
 		}
 		r, err := load(file)
 		if err != nil {
@@ -233,15 +240,15 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 		if internal == "__paths" {
 			return json.NewEncoder(out).Encode(Response{1, matches(r, nil, false)})
 		}
-		if internal == "__complete" {
-			// Suggest any effective tag that can still produce a direct match.
+		if internal == "__complete" || internal == "__tags" {
+			// Navigation needs usable matches; renaming also needs stale-only tags.
 			tags := []string{}
 			for _, e := range r.Entries {
 				tags = append(tags, e.Tags...)
 			}
 			entries := []Entry{}
 			for _, t := range unique(tags) {
-				if len(matches(r, append(append([]string{}, o.Tags...), t), true)) > 0 {
+				if internal == "__tags" || len(matches(r, append(append([]string{}, o.Tags...), t), true)) > 0 {
 					entries = append(entries, Entry{Path: t, Tags: []string{}})
 				}
 			}
@@ -261,6 +268,9 @@ func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 	}
 	if o.Op == "move" {
 		return moveRegistry(file, o, out)
+	}
+	if o.Op == "rename-tag" {
+		return renameTagRegistry(file, o.Tags[0], o.Tags[1], o.DryRun, out)
 	}
 	if o.Op == "add" || o.Op == "delete" || o.Op == "remove" {
 		path, err := canonical(o.Path, o.Op == "add")

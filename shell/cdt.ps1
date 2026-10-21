@@ -183,11 +183,13 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
         $expectPath = $false
         $ended = $false
         $moving = $false
+        $renaming = $false
         foreach ($value in $before) {
             if ($expectPath) { $expectPath = $false; continue }
             if (-not $ended -and $value -eq '--') { $ended = $true; continue }
             if (-not $ended -and $value -eq '--tags') { return }
             if (-not $ended -and $value -eq '--move') { $moving = $true; continue }
+            if (-not $ended -and $value -eq '--rename-tag') { $renaming = $true; continue }
             if (-not $ended -and ($value -eq '--path' -or $value -match '^-[adrl]*p$')) {
                 $expectPath = $true
                 continue
@@ -205,6 +207,7 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
             return
         }
         if ($moving -and $tags.Count -ge 2) { return }
+        if ($renaming -and $tags.Count -ge 2) { return }
         if ($expectPath -or $moving) {
             $path = [Environment]::ExpandEnvironmentVariables($prefix)
             if ($path.StartsWith('~')) { $path = $HOME + $path.Substring(1) }
@@ -242,10 +245,12 @@ $cdtModule = New-Module -Name CdtIntegration -ArgumentList $cdtApplication.Sourc
             return
         }
         try {
-            $response = Get-CdtResponse '__complete' $tags.ToArray()
+            $response = if ($renaming) { Get-CdtResponse '__tags' @() } else {
+                Get-CdtResponse '__complete' $tags.ToArray()
+            }
             foreach ($entry in $response.entries) {
                 if ($entry.path.StartsWith($prefix, [StringComparison]::Ordinal) -and
-                    -not $tags.Contains($entry.path)) {
+                    ($renaming -or -not $tags.Contains($entry.path))) {
                     $quoted = "'" + $entry.path.Replace("'", "''") + "'"
                     [Management.Automation.CompletionResult]::new($quoted, $entry.path, 'ParameterValue', $entry.path)
                 }
