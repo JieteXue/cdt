@@ -17,10 +17,10 @@ jobs:
       - run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test -race ./...
-      - run: go build -o cdt .
+      - run: go build -o bin/cdt ./cmd/cdt
       - run: zsh -n shell/cdt.zsh
       - run: python3 tests/zsh_pty.py -v
       - name: Cross-compile both macOS architectures
         run: |
-          GOOS=darwin GOARCH=arm64 go build -o dist/cdt-arm64 .
-          GOOS=darwin GOARCH=amd64 go build -o dist/cdt-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -o dist/cdt-arm64 ./cmd/cdt
+          GOOS=darwin GOARCH=amd64 go build -o dist/cdt-amd64 ./cmd/cdt

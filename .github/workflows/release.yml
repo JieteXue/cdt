@@ -52,9 +52,9 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: |
-          output=cdt
-          if [[ "$TARGET_OS" == windows ]]; then output=cdt.exe; fi
-          go build -trimpath -ldflags="-s -w -X main.version=${RELEASE_TAG#v}" -o "$output" .
+          output=bin/cdt
+          if [[ "$TARGET_OS" == windows ]]; then output=bin/cdt.exe; fi
+          go build -trimpath -ldflags="-s -w -X main.version=${RELEASE_TAG#v}" -o "$output" ./cmd/cdt
       - run: zsh -n shell/cdt.zsh
         if: runner.os == 'macOS'
       - run: python3 tests/zsh_pty.py -v
@@ -68,17 +68,17 @@ jobs:
       - name: Package tested binary
         if: runner.os == 'macOS'
         run: |
-          test "$(./cdt --version)" = "cdt ${RELEASE_TAG#v}"
+          test "$(./bin/cdt --version)" = "cdt ${RELEASE_TAG#v}"
           mkdir -p dist
-          tar -czf "dist/cdt_${RELEASE_TAG#v}_darwin_${TARGET_ARCH}.tar.gz" cdt LICENSE README.md CHANGELOG.md
+          tar -czf "dist/cdt_${RELEASE_TAG#v}_darwin_${TARGET_ARCH}.tar.gz" -C bin cdt -C .. LICENSE README.md CHANGELOG.md
       - name: Package tested Windows binary
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG.Substring(1)
-          if ((.\cdt.exe --version) -ne "cdt $version") { throw 'binary version mismatch' }
+          if ((.\bin\cdt.exe --version) -ne "cdt $version") { throw 'binary version mismatch' }
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Compress-Archive -LiteralPath cdt.exe, LICENSE, README.md, CHANGELOG.md -DestinationPath "dist/cdt_${version}_windows_$($env:TARGET_ARCH).zip"
+          Compress-Archive -LiteralPath bin/cdt.exe, LICENSE, README.md, CHANGELOG.md -DestinationPath "dist/cdt_${version}_windows_$($env:TARGET_ARCH).zip"
       - uses: actions/upload-artifact@v4
         with:
           name: cdt-${{ matrix.goos }}-${{ matrix.arch }}

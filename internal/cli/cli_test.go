@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -109,7 +109,7 @@ func TestCRUDAndPaths(t *testing.T) {
 	run := func(args ...string) string {
 		t.Helper()
 		var out bytes.Buffer
-		if err := execute(args, strings.NewReader(""), &out); err != nil {
+		if err := Execute(args, strings.NewReader(""), &out, "dev"); err != nil {
 			t.Fatal(args, err)
 		}
 		return out.String()
@@ -127,7 +127,7 @@ func TestCRUDAndPaths(t *testing.T) {
 		t.Fatal(resp)
 	}
 	var decoded bytes.Buffer
-	if err := execute([]string{"__decode"}, strings.NewReader(query), &decoded); err != nil {
+	if err := Execute([]string{"__decode"}, strings.NewReader(query), &decoded, "dev"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(decoded.String(), real+"\x00") {
@@ -157,7 +157,7 @@ func TestCRUDAndPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := execute([]string{"--doctor"}, strings.NewReader(""), &out); err == nil {
+	if err := Execute([]string{"--doctor"}, strings.NewReader(""), &out, "dev"); err == nil {
 		t.Fatal("doctor accepted stale path")
 	}
 	run("-dp", real)
@@ -202,17 +202,17 @@ func TestCorruptionAndAtomicWrites(t *testing.T) {
 func TestHelpAndUninitialized(t *testing.T) {
 	for _, args := range [][]string{nil, {"--help"}, {"-V"}, {"init", "zsh"}, {"init", "powershell"}} {
 		var out bytes.Buffer
-		if err := execute(args, strings.NewReader(""), &out); err != nil || out.Len() == 0 {
+		if err := Execute(args, strings.NewReader(""), &out, "dev"); err != nil || out.Len() == 0 {
 			t.Fatal(args, err)
 		}
 	}
 	for _, args := range [][]string{{"init"}, {"init", "bash"}, {"init", "powershell", "extra"}} {
-		if err := execute(args, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+		if err := Execute(args, strings.NewReader(""), &bytes.Buffer{}, "dev"); err == nil {
 			t.Fatal("accepted invalid initialization", args)
 		}
 	}
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	if err := execute([]string{"api"}, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+	if err := Execute([]string{"api"}, strings.NewReader(""), &bytes.Buffer{}, "dev"); err == nil {
 		t.Fatal("standalone jump must require shell")
 	}
 }

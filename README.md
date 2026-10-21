@@ -230,7 +230,7 @@ on Windows:
 ```sh
 go test -race ./...
 go vet ./...
-go build -o cdt .
+go build -o bin/cdt ./cmd/cdt
 python3 tests/zsh_pty.py -v
 ```
 
@@ -239,7 +239,7 @@ On Windows:
 ```powershell
 go test ./...
 go vet ./...
-go build -o cdt.exe .
+go build -o bin/cdt.exe ./cmd/cdt
 pwsh -NoProfile -NonInteractive -File tests/powershell.ps1
 python tests/powershell_pty.py -v
 ```
@@ -249,9 +249,23 @@ on macOS and Windows x64; Windows ARM64 runs ordinary Go tests. Windows menu
 tests use a real ConPTY terminal, not a mocked key reader.
 Go is needed only by contributors and release builders, not installed users.
 
-Shared parsing, matching, storage schema, and tree rendering stay in the root
-package. `platform_*.go` and `editor_*.go` isolate OS-specific operations;
-`shell/cdt.zsh` and `shell/cdt.ps1` own shell navigation and completion.
+### Repository layout
+
+```text
+cmd/cdt/         Executable entry point and release version
+internal/cli/    Commands, registry, matching, editor, and unit tests
+shell/           Embedded zsh and PowerShell integrations
+tests/           Cross-platform shell and terminal integration tests
+bin/             Local binaries (ignored by Git)
+dist/            Release archives and cross-builds (ignored by Git)
+.github/         CI and release workflows
+```
+
+OS-specific `platform_*.go` and `editor_*.go` files stay beside their shared
+implementations in `internal/cli`; Go selects the correct files automatically.
+Unit tests stay beside the implementation they exercise. Shell integration tests
+default to the executable in `bin/`; set `CDT_BINARY` to an absolute path to test
+another installation.
 
 ### Publishing
 

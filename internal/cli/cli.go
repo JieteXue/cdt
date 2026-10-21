@@ -1,7 +1,7 @@
-package main
+// Package cli implements cdt commands and registry operations.
+package cli
 
 import (
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,15 +10,9 @@ import (
 	"runtime"
 	"strings"
 	"unicode"
+
+	"github.com/JieteXue/cdt/shell"
 )
-
-var version = "dev"
-
-//go:embed shell/cdt.zsh
-var shell string
-
-//go:embed shell/cdt.ps1
-var powershell string
 
 const help = `cdt - directory tags for zsh and PowerShell 7
 
@@ -138,14 +132,15 @@ type Response struct {
 	Entries []Entry `json:"entries"`
 }
 
-func execute(args []string, in io.Reader, out io.Writer) error {
+// Execute runs a command without exiting the process.
+func Execute(args []string, in io.Reader, out io.Writer, version string) error {
 	if len(args) > 0 && args[0] == "init" {
 		if len(args) != 2 || (args[1] != "zsh" && args[1] != "powershell") {
 			return errors.New("usage: cdt init zsh|powershell")
 		}
-		integration := shell
+		integration := shell.Zsh
 		if args[1] == "powershell" {
-			integration = powershell
+			integration = shell.PowerShell
 		}
 		_, err := io.WriteString(out, integration)
 		return err
@@ -276,11 +271,4 @@ func display(e Entry) string {
 		return r
 	}, e.Path)
 	return p + "  [" + strings.Join(e.Tags, ", ") + "]"
-}
-
-func main() {
-	if err := execute(os.Args[1:], os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "cdt:", err)
-		os.Exit(1)
-	}
 }

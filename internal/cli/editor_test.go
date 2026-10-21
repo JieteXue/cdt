@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -225,7 +225,7 @@ func TestExecuteEdit(t *testing.T) {
 	t.Setenv("VISUAL", quoted+editorArgs)
 	t.Setenv("EDITOR", "false")
 	var out bytes.Buffer
-	if err := execute([]string{"--edit"}, strings.NewReader(""), &out); err != nil {
+	if err := Execute([]string{"--edit"}, strings.NewReader(""), &out, "dev"); err != nil {
 		t.Fatal(err)
 	}
 	r, err := load(file)

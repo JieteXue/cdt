@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ func TestMutationFeedback(t *testing.T) {
 	run := func(want []string, args ...string) {
 		t.Helper()
 		var out bytes.Buffer
-		if err := execute(args, strings.NewReader(""), &out); err != nil {
+		if err := Execute(args, strings.NewReader(""), &out, "dev"); err != nil {
 			t.Fatal(err)
 		}
 		for _, text := range want {
@@ -67,7 +67,7 @@ func TestMutationInheritedTagAndFailure(t *testing.T) {
 	var out bytes.Buffer
 	for _, args := range [][]string{{"-ap", parent, "work"}, {"-ap", child, "api"}, {"-ap", child, "work"}} {
 		out.Reset()
-		if err := execute(args, strings.NewReader(""), &out); err != nil {
+		if err := Execute(args, strings.NewReader(""), &out, "dev"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -79,7 +79,7 @@ func TestMutationInheritedTagAndFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
-	if err := execute([]string{"-ap", child, "new"}, strings.NewReader(""), &out); err == nil || out.Len() != 0 {
+	if err := Execute([]string{"-ap", child, "new"}, strings.NewReader(""), &out, "dev"); err == nil || out.Len() != 0 {
 		t.Fatalf("failure printed success: %q, %v", &out, err)
 	}
 }

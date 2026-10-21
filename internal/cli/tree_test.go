@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -68,7 +68,7 @@ func TestListTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := execute([]string{"-l"}, strings.NewReader(""), &out); err != nil {
+	if err := Execute([]string{"-l"}, strings.NewReader(""), &out, "dev"); err != nil {
 		t.Fatal(err)
 	}
 	if out.String() != testPath("/missing")+"  [parent]\n\u2514\u2500\u2500 child  [child]\n" {

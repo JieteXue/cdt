@@ -1,4 +1,6 @@
-param([string] $Binary = (Join-Path $PSScriptRoot '..' 'cdt.exe'))
+param([string] $Binary = $(if ($env:CDT_BINARY) { $env:CDT_BINARY } else {
+    Join-Path $PSScriptRoot '..' 'bin' $(if ($IsWindows) { 'cdt.exe' } else { 'cdt' })
+}))
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $Binary = (Resolve-Path -LiteralPath $Binary).ProviderPath

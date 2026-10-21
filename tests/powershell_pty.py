@@ -11,7 +11,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BIN = ROOT / ("cdt.exe" if os.name == "nt" else "cdt")
+BIN = Path(os.environ.get("CDT_BINARY", str(ROOT / "bin" / ("cdt.exe" if os.name == "nt" else "cdt")))).resolve()
 
 
 class WindowsTerminal:
@@ -212,7 +212,7 @@ class PowerShellTerminalTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name).resolve()
         self.env = dict(os.environ, XDG_CONFIG_HOME=str(self.root / "config"),
-                        PATH=str(ROOT) + os.pathsep + os.environ["PATH"], TERM="xterm-256color")
+                        PATH=str(BIN.parent) + os.pathsep + os.environ["PATH"], TERM="xterm-256color")
         self.a = self.root / "a space ' [literal] $(INJECTED)"
         self.b = self.root / "b directory"
         for path, tag in [(self.a, "alpha"), (self.b, "beta")]:

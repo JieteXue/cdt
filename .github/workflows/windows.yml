@@ -31,6 +31,6 @@ jobs:
           if ('${{ matrix.arch }}' -eq 'amd64') { go test -race ./... }
           else { go test ./... }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run: go build -o cdt.exe .
+      - run: go build -o bin/cdt.exe ./cmd/cdt
       - run: pwsh -NoProfile -NonInteractive -File tests/powershell.ps1
       - run: python tests/powershell_pty.py -v

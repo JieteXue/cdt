@@ -17,7 +17,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BIN = ROOT / "cdt"
+BIN = Path(os.environ.get("CDT_BINARY", str(ROOT / "bin" / "cdt"))).resolve()
 
 
 class Shell:
@@ -78,7 +78,7 @@ class Integration(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
         self.env = dict(os.environ, XDG_CONFIG_HOME=str(self.root / "config"),
-                        PATH=str(ROOT) + os.pathsep + os.environ["PATH"],
+                        PATH=str(BIN.parent) + os.pathsep + os.environ["PATH"],
                         TERM="xterm-256color", ZDOTDIR=str(self.root))
         self.a = self.root / "a space ' $(touch PWNED)"
         self.b = self.root / "b 中文"
