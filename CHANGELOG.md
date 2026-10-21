@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0
+
 - Add global `--rename-tag OLD NEW` with read-only previews, per-path before/after
   feedback, target-tag merging, and atomic application without touching directories.
 - Complete both rename operands from all recorded tags, including stale-only tags.
