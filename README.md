@@ -55,20 +55,60 @@ Only a successful jump changes your shell's current directory.
 
 ### macOS
 
+**Install the executable, then configure zsh once.** Homebrew does not modify
+your startup files, so installing the package alone does not enable jumping.
+
 ```sh
 brew install JieteXue/tap/cdt
 ```
 
-Add this line to your `.zshrc`, after your existing completion setup:
+Open your zsh startup file (create it if necessary):
+
+```sh
+nano "${ZDOTDIR:-$HOME}/.zshrc"
+```
+
+This is normally `~/.zshrc`. If you use `ZDOTDIR`, edit `.zshrc` in that directory
+instead. Add the following block **once**, near the end of the file, after your
+`PATH` and completion setup:
+
+```zsh
+# Enable cdt navigation and completion when installed.
+if (( $+commands[cdt] )); then
+  eval "$(command cdt init zsh)"
+fi
+```
+
+For Oh My Zsh, put the block after `source "$ZSH/oh-my-zsh.sh"` and any later
+`compinit` call. The guard avoids startup errors if cdt is later uninstalled.
+Keep only one copy of the block.
+
+Save the file, then **open a new terminal window or tab**. Future interactive zsh
+sessions will load cdt automatically; no manual `eval` is needed each time.
+To enable it immediately in the terminal you already have open, run this once:
 
 ```sh
 eval "$(command cdt init zsh)"
 ```
 
-Add it once; new interactive zsh sessions will load cdt automatically. Run the
-same line in an existing session to enable it immediately. The shell function is
-needed because a standalone executable cannot change its parent shell's directory.
-Installation does not edit your shell configuration.
+Verify in the new terminal:
+
+```sh
+whence -w cdt
+# Expected: cdt: function
+cdt --version
+```
+
+If `whence` reports a command rather than a function, or jumping prints
+`cdt: jumping requires zsh integration`, the initialization has not loaded in
+that session. Check that the block is saved in the correct `.zshrc`, after
+Homebrew's `bin` directory is added to `PATH`, and reopen the terminal.
+`command cdt --version` should work before the block runs.
+
+The shell function is needed because a standalone executable cannot change its
+parent shell's directory. Running `eval` only at the prompt enables the current
+session; saving the block in `.zshrc` makes it persistent.
+
 Homebrew automatically downloads the precompiled macOS package for Apple Silicon
 or Intel; installing cdt does not install Go or compile source code. Each release
 also includes both architecture archives and a `checksums.txt` file for manual
@@ -89,16 +129,31 @@ Verify the downloaded archive against the release's `checksums.txt`:
 Get-FileHash .\cdt_0.5.0_windows_amd64.zip -Algorithm SHA256
 ```
 
-In PowerShell 7, initialize the function:
+Configure automatic loading once in **PowerShell 7**. Create your profile if it
+does not exist, then open it:
 
 ```powershell
-cdt.exe init powershell | Out-String | Invoke-Expression
+if (-not (Test-Path -LiteralPath $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+}
+notepad $PROFILE
 ```
 
-Add that initialization line to your PowerShell `$PROFILE` after any existing
-completion setup to enable it in future sessions. Installation does not edit
-your profile or execution policy. Windows PowerShell 5.1 and `cmd.exe` shell
-integration are not supported.
+Add this block once, after any `PATH` and completion setup:
+
+```powershell
+if (Get-Command cdt.exe -CommandType Application -ErrorAction SilentlyContinue) {
+    cdt.exe init powershell | Out-String | Invoke-Expression
+}
+```
+
+Save the profile and open a new PowerShell session. `(Get-Command cdt).CommandType`
+should print `Function`. To enable the current session immediately, run
+`cdt.exe init powershell | Out-String | Invoke-Expression` once at the prompt.
+Sessions started with `-NoProfile` do not load this configuration.
+
+Installation does not edit your profile or execution policy. Windows PowerShell
+5.1 and `cmd.exe` shell integration are not supported.
 
 ```powershell
 cdt -ap 'C:\Projects\api' work api
@@ -466,8 +521,9 @@ when upgrading to v0.5.0.
 brew uninstall cdt
 ```
 
-Remove the initialization line from `.zshrc` when uninstalling. Your registry is
-retained; remove it separately only when you no longer need the records.
+Remove the cdt initialization block from your zsh startup file when uninstalling.
+Your registry is retained; remove it separately only when you no longer need
+the records.
 
 On Windows, remove the installation directory from `PATH`, delete it, and remove
 initialization from `$PROFILE`. Registry data is retained separately.
