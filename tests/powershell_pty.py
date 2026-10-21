@@ -244,6 +244,8 @@ class PowerShellTerminalTests(unittest.TestCase):
 
     def test_cancel_and_restore(self):
         self.shell.command("cdt alpha")
+        out, _ = self.shell.command("Write-Output ('CTRL:' + [Console]::TreatControlCAsInput)")
+        original_mode = b"CTRL:True" if b"CTRL:True" in out else b"CTRL:False"
         for key in [b"\x1b", b"\x07", b"\x03"]:
             with self.subTest(key=key):
                 self.menu()
@@ -252,7 +254,7 @@ class PowerShellTerminalTests(unittest.TestCase):
                 self.assertIn(b"cdt: cancelled; directory unchanged", out)
                 self.assertEqual(self.location(self.a), b"130")
                 out, _ = self.shell.command("Write-Output ('CTRL:' + [Console]::TreatControlCAsInput)")
-                self.assertIn(b"CTRL:False", out)
+                self.assertIn(original_mode, out)
 
 
 if __name__ == "__main__":
