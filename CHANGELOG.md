@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Publish tested macOS arm64 and amd64 binary archives with SHA-256 checksums.
+- Install precompiled packages through Homebrew without a Go dependency.
+- Automate native-architecture release validation and publication.
+
 ## 0.3.0
 
 - Report mutation paths, new/removed tags, skipped tags, and before/after own tags.

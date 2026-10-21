@@ -16,6 +16,10 @@ eval "$(command cdt init zsh)"
 
 Run the same line in an existing zsh session to enable it immediately. Installation
 does not edit your shell configuration. No fzf, Python, or Go is needed at runtime.
+Homebrew automatically downloads the precompiled macOS package for Apple Silicon
+or Intel; installing cdt does not install Go or compile source code. Each release
+also includes both architecture archives and a `checksums.txt` file for manual
+verification. Only the package matching your Mac is needed.
 
 ## Usage
 
@@ -170,8 +174,20 @@ go build -o cdt .
 python3 tests/zsh_pty.py -v
 ```
 
-CI tests Apple Silicon and Intel macOS. Source releases are compiled by Homebrew,
-so Go is a build dependency only.
+CI tests Apple Silicon and Intel macOS. Go is needed only by contributors and
+release builders, not by Homebrew users.
+
+### Publishing
+
+Push a new immutable `vMAJOR.MINOR.PATCH` tag after checks pass. The release
+workflow builds a CGO-free binary on each native architecture, tests the actual
+binary with zsh PTYs, and packages it with the license and documentation. Both
+builds must pass before the workflow publishes the GitHub release archives and
+SHA-256 checksums. A failed upload leaves a draft, not a published partial release.
+
+Then update the personal tap's architecture-specific URLs and SHA-256 values from
+that release. Run the tap's audit, install, and smoke tests before pushing it.
+Keep released tags and archives immutable so the tap's checksums remain valid.
 
 ## Upgrade and uninstall
 

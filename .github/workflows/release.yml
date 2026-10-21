@@ -1,0 +1,74 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: amd64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      TARGET_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate release tag and runner
+        shell: bash
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(go env GOARCH)" = "$TARGET_ARCH"
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: Build release binary
+        env:
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w -X main.version=${RELEASE_TAG#v}" -o cdt .
+      - run: zsh -n shell/cdt.zsh
+      - run: python3 tests/zsh_pty.py -v
+      - name: Package tested binary
+        run: |
+          test "$(./cdt --version)" = "cdt ${RELEASE_TAG#v}"
+          mkdir -p dist
+          tar -czf "dist/cdt_${RELEASE_TAG#v}_darwin_${TARGET_ARCH}.tar.gz" cdt LICENSE README.md CHANGELOG.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cdt-darwin-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cdt-darwin-*
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz > checksums.txt
+      - name: Publish tested packages
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes dist/*
+          gh release edit "$RELEASE_TAG" --draft=false
